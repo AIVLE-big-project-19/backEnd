@@ -2,8 +2,9 @@ package com.example.demo.board.service;
 
 import com.example.demo.board.dto.BoardRequest;
 import com.example.demo.board.dto.BoardResponse;
+import com.example.demo.global.response.PageResponse;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 
 public interface BoardService {
 
@@ -14,7 +15,7 @@ public interface BoardService {
     BoardResponse getBoard(Long boardId);
 
     // 게시글 전체 조회
-    List<BoardResponse> getBoards();
+    PageResponse<BoardResponse> getBoards(Pageable pageable);
 
     // 게시글 수정
     BoardResponse updateBoard(Long boardId, BoardRequest request);

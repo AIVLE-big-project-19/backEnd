@@ -6,8 +6,10 @@ import com.example.demo.board.entity.Board;
 import com.example.demo.board.repository.BoardRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -46,12 +48,13 @@ public class BoardServiceImpl implements BoardService {
     }
 
     @Override
-    public List<BoardResponse> getBoards() {
+    public PageResponse<BoardResponse> getBoards(Pageable pageable){
 
-        return boardRepository.findAll()
-                .stream()
-                .map(this::entityToResponse)
-                .toList();
+        return PageResponse.from(
+
+                boardRepository.findAll(pageable)
+                        .map(this::entityToResponse)
+        );
     }
 
     @Override
