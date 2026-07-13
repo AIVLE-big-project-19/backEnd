@@ -14,7 +14,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    defer-datasource-initialization: true
+    defer-datasource-initialization: true   # Hibernate 테이블 생성 완료 후 data.sql 실행
     show-sql: true
     properties:
       hibernate:
