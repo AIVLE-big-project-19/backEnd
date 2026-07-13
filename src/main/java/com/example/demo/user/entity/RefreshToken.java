@@ -29,6 +29,8 @@ public class RefreshToken extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
+    private boolean rememberMe;
+
     public boolean isExpired() {
         return expiresAt.isBefore(LocalDateTime.now());
     }

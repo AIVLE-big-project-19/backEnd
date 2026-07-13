@@ -1,7 +1,9 @@
 package com.example.demo.user.service;
 
 import com.example.demo.global.exception.CustomException;
+import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.security.jwt.JwtProvider;
+import com.example.demo.global.util.HashUtil;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.TokenResponse;
 import com.example.demo.user.entity.Provider;
@@ -12,6 +14,7 @@ import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -66,7 +69,10 @@ class AuthServiceTest {
 
         when(userRepository.findByLoginId("nouser")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.login(request)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_CREDENTIALS);
     }
 
     @Test
@@ -78,7 +84,10 @@ class AuthServiceTest {
         when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(sampleUser()));
         when(passwordEncoder.matches("wrong-password", "ENCODED")).thenReturn(false);
 
-        assertThatThrownBy(() -> authService.login(request)).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_CREDENTIALS);
     }
 
     @Test
@@ -98,7 +107,12 @@ class AuthServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+        RefreshToken saved = captor.getValue();
+        assertThat(saved.getTokenHash()).isEqualTo(HashUtil.sha256("refresh-token"));
+        assertThat(saved.isRememberMe()).isTrue();
     }
 
     @Test
@@ -106,7 +120,10 @@ class AuthServiceTest {
         when(jwtProvider.validateToken("bad-token")).thenReturn(true);
         when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> authService.refresh("bad-token")).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> authService.refresh("bad-token"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
     }
 
     @Test
@@ -121,7 +138,31 @@ class AuthServiceTest {
         when(jwtProvider.validateToken("expired-token")).thenReturn(true);
         when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(expired));
 
-        assertThatThrownBy(() -> authService.refresh("expired-token")).isInstanceOf(CustomException.class);
+        assertThatThrownBy(() -> authService.refresh("expired-token"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+    }
+
+    @Test
+    void refresh시_기존_rememberMe_값을_유지한다() {
+        RefreshToken saved = RefreshToken.builder()
+                .id(1L)
+                .user(sampleUser())
+                .tokenHash("hash")
+                .expiresAt(LocalDateTime.now().plusDays(10))
+                .rememberMe(true)
+                .build();
+
+        when(jwtProvider.validateToken("old-token")).thenReturn(true);
+        when(refreshTokenRepository.findByTokenHash(any())).thenReturn(Optional.of(saved));
+        when(jwtProvider.generateAccessToken(1L, Role.USER)).thenReturn("new-access");
+        when(jwtProvider.generateRefreshToken(1L)).thenReturn("new-refresh");
+        when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
+
+        authService.refresh("old-token");
+
+        verify(jwtProvider).getRefreshTokenValidityMs(true);
     }
 
     @Test

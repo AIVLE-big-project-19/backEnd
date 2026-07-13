@@ -64,7 +64,7 @@ public class AuthService {
         User user = saved.getUser();
         refreshTokenRepository.delete(saved);
 
-        return issueTokens(user, false);
+        return issueTokens(user, saved.isRememberMe());
     }
 
     public void logout(String rawRefreshToken) {
@@ -84,6 +84,7 @@ public class AuthService {
                 .user(user)
                 .tokenHash(HashUtil.sha256(refreshToken))
                 .expiresAt(expiresAt)
+                .rememberMe(rememberMe)
                 .build();
 
         refreshTokenRepository.save(entity);
