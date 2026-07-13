@@ -20,7 +20,12 @@ public enum SuccessCode {
 
     // User
     USER_LOGIN("로그인 성공"),
-    USER_SIGNUP("회원가입 성공");
+    USER_SIGNUP("회원가입 성공"),
+    USER_LOGIN_ID_CHECKED("아이디 중복확인 완료"),
+    EMAIL_CODE_SENT("인증번호가 발송되었습니다."),
+    EMAIL_CODE_VERIFIED("인증이 완료되었습니다."),
+    TOKEN_REFRESHED("토큰이 재발급되었습니다."),
+    USER_LOGOUT("로그아웃 되었습니다.");
 
     private final String message;
 
