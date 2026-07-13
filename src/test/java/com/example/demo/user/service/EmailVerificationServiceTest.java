@@ -81,4 +81,16 @@ class EmailVerificationServiceTest {
 
         assertThat(emailVerificationService.isVerified("test@example.com")).isTrue();
     }
+
+    @Test
+    void 메일_발송_실패하면_Redis에_저장되지_않고_예외가_전파된다() {
+        when(redisTemplate.hasKey("email-code:test@example.com")).thenReturn(false);
+        doThrow(new RuntimeException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        assertThatThrownBy(() -> emailVerificationService.sendCode("test@example.com"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("SMTP down");
+
+        verify(valueOperations, never()).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
+    }
 }

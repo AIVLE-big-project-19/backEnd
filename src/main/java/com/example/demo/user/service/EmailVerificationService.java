@@ -33,13 +33,14 @@ public class EmailVerificationService {
         }
 
         String code = generateCode();
-        redisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
         message.setSubject("[인증번호] 회원가입 이메일 인증");
         message.setText("인증번호는 " + code + " 입니다. 5분 이내에 입력해주세요.");
         mailSender.send(message);
+
+        redisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
     }
 
     public void verifyCode(String email, String code) {
