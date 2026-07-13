@@ -102,7 +102,6 @@ public class CommentServiceImpl implements CommentService {
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .build();
-
     }
 
 }
