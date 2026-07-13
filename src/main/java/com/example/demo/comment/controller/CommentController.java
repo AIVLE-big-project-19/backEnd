@@ -3,6 +3,8 @@ package com.example.demo.comment.controller;
 import com.example.demo.comment.dto.CommentRequest;
 import com.example.demo.comment.dto.CommentResponse;
 import com.example.demo.comment.service.CommentService;
+import com.example.demo.global.response.ApiResponse;
+import com.example.demo.global.response.SuccessCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,43 +23,58 @@ public class CommentController {
      */
     @PostMapping("/boards/{boardId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
-    public CommentResponse createComment(
+    public ApiResponse<CommentResponse> createComment(
             @PathVariable Long boardId,
-            @Valid @RequestBody CommentRequest request) {
+            @Valid @RequestBody CommentRequest request){
 
-        return commentService.createComment(boardId, request);
+        return ApiResponse.success(
+                SuccessCode.COMMENT_CREATED,
+                commentService.createComment(boardId, request)
+        );
+
     }
 
     /**
      * 댓글 목록 조회
      */
     @GetMapping("/boards/{boardId}/comments")
-    public List<CommentResponse> getComments(
-            @PathVariable Long boardId) {
+    public ApiResponse<List<CommentResponse>> getComments(
+            @PathVariable Long boardId){
 
-        return commentService.getComments(boardId);
+        return ApiResponse.success(
+                SuccessCode.COMMENT_LIST_FOUND,
+                commentService.getComments(boardId)
+        );
     }
 
     /**
      * 댓글 수정
      */
     @PutMapping("/comments/{commentId}")
-    public CommentResponse updateComment(
+    public ApiResponse<CommentResponse> updateComment(
             @PathVariable Long commentId,
-            @Valid @RequestBody CommentRequest request) {
+            @Valid @RequestBody CommentRequest request){
 
-        return commentService.updateComment(commentId, request);
+        return ApiResponse.success(
+                SuccessCode.COMMENT_UPDATED,
+                commentService.updateComment(commentId, request)
+        );
+
     }
 
     /**
      * 댓글 삭제
      */
     @DeleteMapping("/comments/{commentId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteComment(
-            @PathVariable Long commentId) {
+    public ApiResponse<Void> deleteComment(
+            @PathVariable Long commentId){
 
         commentService.deleteComment(commentId);
+
+        return ApiResponse.success(
+                SuccessCode.COMMENT_DELETED
+        );
+
     }
 
 }

@@ -3,12 +3,15 @@ package com.example.demo.board.controller;
 import com.example.demo.board.dto.BoardRequest;
 import com.example.demo.board.dto.BoardResponse;
 import com.example.demo.board.service.BoardService;
+import com.example.demo.global.response.ApiResponse;
+import com.example.demo.global.response.PageResponse;
+import com.example.demo.global.response.SuccessCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/boards")
@@ -19,36 +22,59 @@ public class BoardController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public BoardResponse createBoard(@Valid @RequestBody BoardRequest request){
+    public ApiResponse<BoardResponse> createBoard(
+            @Valid @RequestBody BoardRequest request){
 
-        return boardService.createBoard(request);
+        return ApiResponse.success(
+                SuccessCode.BOARD_CREATED,
+                boardService.createBoard(request)
+        );
+
     }
 
     @GetMapping
-    public List<BoardResponse> getBoards(){
+    public ApiResponse<PageResponse<BoardResponse>> getBoards(
+            Pageable pageable){
 
-        return boardService.getBoards();
+        return ApiResponse.success(
+                SuccessCode.BOARD_LIST_FOUND,
+                boardService.getBoards(pageable)
+        );
+
     }
 
     @GetMapping("/{boardId}")
-    public BoardResponse getBoard(@PathVariable Long boardId){
+    public ApiResponse<BoardResponse> getBoard(
+            @PathVariable Long boardId){
 
-        return boardService.getBoard(boardId);
+        return ApiResponse.success(
+                SuccessCode.BOARD_FOUND,
+                boardService.getBoard(boardId)
+        );
+
     }
 
     @PutMapping("/{boardId}")
-    public BoardResponse updateBoard(
+    public ApiResponse<BoardResponse> updateBoard(
             @PathVariable Long boardId,
             @Valid @RequestBody BoardRequest request){
 
-        return boardService.updateBoard(boardId, request);
+        return ApiResponse.success(
+                SuccessCode.BOARD_UPDATED,
+                boardService.updateBoard(boardId, request)
+        );
+
     }
 
     @DeleteMapping("/{boardId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteBoard(@PathVariable Long boardId){
+    public ApiResponse<Void> deleteBoard(
+            @PathVariable Long boardId){
 
         boardService.deleteBoard(boardId);
+
+        return ApiResponse.success(
+                SuccessCode.BOARD_DELETED
+        );
 
     }
 
