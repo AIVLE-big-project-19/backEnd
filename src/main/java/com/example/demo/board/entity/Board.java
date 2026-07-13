@@ -5,6 +5,10 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+import com.example.demo.comment.entity.Comment;
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "board")
 @Getter
@@ -69,4 +73,12 @@ public class Board {
     public void increaseViewCount() {
         this.viewCount++;
     }
+
+    @OneToMany(
+            mappedBy = "board",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<Comment> comments = new ArrayList<>();
+
 }
