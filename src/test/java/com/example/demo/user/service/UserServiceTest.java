@@ -1,6 +1,7 @@
 package com.example.demo.user.service;
 
 import com.example.demo.global.exception.CustomException;
+import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
@@ -49,7 +50,9 @@ class UserServiceTest {
         when(emailVerificationService.isVerified(request.getEmail())).thenReturn(false);
 
         assertThatThrownBy(() -> userService.signup(request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
     }
 
     @Test
@@ -59,7 +62,9 @@ class UserServiceTest {
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(true);
 
         assertThatThrownBy(() -> userService.signup(request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.DUPLICATE_LOGIN_ID);
     }
 
     @Test
@@ -70,7 +75,9 @@ class UserServiceTest {
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
 
         assertThatThrownBy(() -> userService.signup(request))
-                .isInstanceOf(CustomException.class);
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.DUPLICATE_EMAIL);
     }
 
     @Test
