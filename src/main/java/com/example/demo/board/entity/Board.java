@@ -1,5 +1,6 @@
 package com.example.demo.board.entity;
 
+import com.example.demo.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -16,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Board {
+public class Board extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,36 +41,7 @@ public class Board {
     @Column(nullable = false)
     private Integer viewCount = 0;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
 
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    /**
-     * 게시글 생성 시 자동 실행
-     */
-    @PrePersist
-    public void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-
-        if (this.viewCount == null) {
-            this.viewCount = 0;
-        }
-    }
-
-    /**
-     * 게시글 수정 시 자동 실행
-     */
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    /**
-     * 조회수 증가
-     */
     public void increaseViewCount() {
         this.viewCount++;
     }

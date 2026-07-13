@@ -1,6 +1,7 @@
 package com.example.demo.comment.entity;
 
 import com.example.demo.board.entity.Board;
+import com.example.demo.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Comment {
+public class Comment extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,26 +39,5 @@ public class Comment {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    /**
-     * 생성일
-     */
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
 
-    /**
-     * 수정일
-     */
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    public void prePersist() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }
