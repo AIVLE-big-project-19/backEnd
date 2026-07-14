@@ -64,9 +64,11 @@ public class BoardServiceImpl implements BoardService {
                 .orElseThrow(() ->
                         new CustomException(ErrorCode.BOARD_NOT_FOUND));
 
-        board.setTitle(request.getTitle());
-        board.setContent(request.getContent());
-        board.setCategory(request.getCategory());
+        board.update(
+                request.getTitle(),
+                request.getContent(),
+                request.getCategory()
+        );
 
         Board updatedBoard = boardRepository.save(board);
 

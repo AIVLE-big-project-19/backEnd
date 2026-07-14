@@ -13,7 +13,6 @@ import java.util.List;
 @Entity
 @Table(name = "board")
 @Getter
-@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -41,6 +40,15 @@ public class Board extends BaseEntity {
     @Column(nullable = false)
     private Integer viewCount = 0;
 
+    public void update(String title,
+                       String content,
+                       String category){
+
+        this.title = title;
+        this.content = content;
+        this.category = category;
+
+    }
 
     public void increaseViewCount() {
         this.viewCount++;
