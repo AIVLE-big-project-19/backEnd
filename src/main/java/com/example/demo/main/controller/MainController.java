@@ -1,6 +1,7 @@
 package com.example.demo.main.controller;
 
 import com.example.demo.main.service.MainService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,7 +30,7 @@ public class MainController {
         return "main";
     }
 
-    @GetMapping("/api/map/search") //지도 검색
+    @GetMapping("/map/search") //지도 검색
 
     @ResponseBody
     public String searchProxy(@RequestParam("keyword") String keyword) {
@@ -39,5 +40,12 @@ public class MainController {
     private List<Map<String, Object>> getSampleLocations() {
         List<Map<String, Object>> sampleLocations = new ArrayList<>();
         return sampleLocations;
+    }
+
+    @GetMapping("/vworld-key") // vWorld api 키 가져오기
+    public ResponseEntity<Map<String, String>> getVworldKey() {
+        Map<String, String> response = new HashMap<>();
+        response.put("apiKey", mainService.getVWorldApiKey());
+        return ResponseEntity.ok(response);
     }
 }

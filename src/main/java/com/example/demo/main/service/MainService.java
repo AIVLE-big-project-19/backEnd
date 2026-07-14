@@ -1,5 +1,6 @@
 package com.example.demo.main.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import java.net.URI;
@@ -8,8 +9,8 @@ import java.nio.charset.StandardCharsets;
 
 @Service
 public class MainService {
-
-    private final String vWorldApiKey = "0559A559-131E-35CB-90E4-93B1B10CA3E9"; //추후 properties나 evn로 빼기
+    @Value("${VWORLD_API_KEY}")
+    private String vWorldApiKey;
 
     public String searchVWorldPlace(String keyword) {
         RestTemplate restTemplate = new RestTemplate();
