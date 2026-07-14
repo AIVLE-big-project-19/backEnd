@@ -1,6 +1,6 @@
-package com.example.demo.board.controller;
+package com.example.demo.main.controller;
 
-import com.example.demo.board.service.MainService;
+import com.example.demo.main.service.MainService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
