@@ -12,6 +12,7 @@ import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -36,6 +37,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Transactional
     public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
@@ -44,9 +46,12 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
 
+        refreshTokenRepository.deleteByUserAndExpiresAtBefore(user, LocalDateTime.now());
+
         return issueTokens(user, request.isRememberMe());
     }
 
+    @Transactional
     public TokenResponse refresh(String rawRefreshToken) {
         if (!jwtProvider.validateToken(rawRefreshToken)) {
             throw new CustomException(ErrorCode.INVALID_REFRESH_TOKEN);

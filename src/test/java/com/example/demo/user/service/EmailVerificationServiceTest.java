@@ -41,17 +41,18 @@ class EmailVerificationServiceTest {
 
     @Test
     void 코드를_발송하면_Redis에_저장하고_메일을_보낸다() {
-        when(redisTemplate.hasKey("email-code:test@example.com")).thenReturn(false);
+        when(redisTemplate.hasKey("email-code-cooldown:test@example.com")).thenReturn(false);
 
         emailVerificationService.sendCode("test@example.com");
 
         verify(valueOperations).set(eq("email-code:test@example.com"), anyString(), eq(5L), eq(TimeUnit.MINUTES));
+        verify(valueOperations).set(eq("email-code-cooldown:test@example.com"), anyString(), eq(1L), eq(TimeUnit.MINUTES));
         verify(mailSender).send(any(SimpleMailMessage.class));
     }
 
     @Test
     void 이미_코드가_발송된_상태면_쿨다운_예외가_발생한다() {
-        when(redisTemplate.hasKey("email-code:test@example.com")).thenReturn(true);
+        when(redisTemplate.hasKey("email-code-cooldown:test@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> emailVerificationService.sendCode("test@example.com"))
                 .isInstanceOf(CustomException.class);
@@ -65,13 +66,54 @@ class EmailVerificationServiceTest {
 
         verify(valueOperations).set(eq("email-verified:test@example.com"), eq("true"), eq(30L), eq(TimeUnit.MINUTES));
         verify(redisTemplate).delete("email-code:test@example.com");
+        verify(redisTemplate).delete("email-code-attempts:test@example.com");
     }
 
     @Test
     void 코드가_불일치하면_예외가_발생한다() {
         when(valueOperations.get("email-code:test@example.com")).thenReturn("123456");
+        when(valueOperations.increment("email-code-attempts:test@example.com")).thenReturn(1L);
 
         assertThatThrownBy(() -> emailVerificationService.verifyCode("test@example.com", "000000"))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    void 한번_틀려도_잠기지_않고_다음에_정답이면_통과한다() {
+        when(valueOperations.get("email-code:test@example.com")).thenReturn("123456");
+        when(valueOperations.increment("email-code-attempts:test@example.com")).thenReturn(1L);
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode("test@example.com", "000000"))
+                .isInstanceOf(CustomException.class);
+
+        // 1회 실패는 잠금 임계치(5회) 미만이므로 코드 키가 삭제되지 않아야 한다
+        verify(redisTemplate, never()).delete("email-code:test@example.com");
+
+        // 이어서 정답을 제출하면 통과해야 한다
+        emailVerificationService.verifyCode("test@example.com", "123456");
+
+        verify(valueOperations).set(eq("email-verified:test@example.com"), eq("true"), eq(30L), eq(TimeUnit.MINUTES));
+    }
+
+    @Test
+    void 오답을_5회_제출하면_코드가_무효화되고_이후_정답도_실패한다() {
+        when(valueOperations.get("email-code:test@example.com")).thenReturn("123456");
+        when(valueOperations.increment("email-code-attempts:test@example.com"))
+                .thenReturn(1L, 2L, 3L, 4L, 5L);
+
+        for (int i = 0; i < 5; i++) {
+            assertThatThrownBy(() -> emailVerificationService.verifyCode("test@example.com", "000000"))
+                    .isInstanceOf(CustomException.class);
+        }
+
+        verify(redisTemplate).delete("email-code:test@example.com");
+        verify(redisTemplate).delete("email-code-attempts:test@example.com");
+
+        // 코드가 삭제된 이후에는 원래 정답이었던 코드로도 검증에 실패한다 (get이 더 이상 값을 반환하지 않는 상황을 재현)
+        when(valueOperations.get("email-code:test@example.com")).thenReturn(null);
+        when(valueOperations.increment("email-code-attempts:test@example.com")).thenReturn(1L);
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCode("test@example.com", "123456"))
                 .isInstanceOf(CustomException.class);
     }
 
@@ -84,7 +126,7 @@ class EmailVerificationServiceTest {
 
     @Test
     void 메일_발송_실패하면_Redis에_저장되지_않고_예외가_전파된다() {
-        when(redisTemplate.hasKey("email-code:test@example.com")).thenReturn(false);
+        when(redisTemplate.hasKey("email-code-cooldown:test@example.com")).thenReturn(false);
         doThrow(new RuntimeException("SMTP down")).when(mailSender).send(any(SimpleMailMessage.class));
 
         assertThatThrownBy(() -> emailVerificationService.sendCode("test@example.com"))

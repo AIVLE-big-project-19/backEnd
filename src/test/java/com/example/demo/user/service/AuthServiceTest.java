@@ -25,6 +25,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class AuthServiceTest {
@@ -113,6 +114,24 @@ class AuthServiceTest {
         RefreshToken saved = captor.getValue();
         assertThat(saved.getTokenHash()).isEqualTo(HashUtil.sha256("refresh-token"));
         assertThat(saved.isRememberMe()).isTrue();
+    }
+
+    @Test
+    void 로그인에_성공하면_해당_사용자의_만료된_refreshToken을_정리한다() {
+        LoginRequest request = new LoginRequest();
+        request.setLoginId("tester01");
+        request.setPassword("password123");
+
+        User user = sampleUser();
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password123", "ENCODED")).thenReturn(true);
+        when(jwtProvider.generateAccessToken(1L, Role.USER)).thenReturn("access-token");
+        when(jwtProvider.generateRefreshToken(1L)).thenReturn("refresh-token");
+        when(jwtProvider.getRefreshTokenValidityMs(false)).thenReturn(86_400_000L);
+
+        authService.login(request);
+
+        verify(refreshTokenRepository).deleteByUserAndExpiresAtBefore(eq(user), any(LocalDateTime.class));
     }
 
     @Test

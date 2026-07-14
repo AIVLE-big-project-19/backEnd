@@ -14,7 +14,10 @@ import java.util.concurrent.TimeUnit;
 public class EmailVerificationService {
 
     private static final String CODE_KEY_PREFIX = "email-code:";
+    private static final String COOLDOWN_KEY_PREFIX = "email-code-cooldown:";
+    private static final String ATTEMPTS_KEY_PREFIX = "email-code-attempts:";
     private static final String VERIFIED_KEY_PREFIX = "email-verified:";
+    private static final int MAX_ATTEMPTS = 5;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final StringRedisTemplate redisTemplate;
@@ -27,8 +30,9 @@ public class EmailVerificationService {
 
     public void sendCode(String email) {
         String codeKey = CODE_KEY_PREFIX + email;
+        String cooldownKey = COOLDOWN_KEY_PREFIX + email;
 
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(codeKey))) {
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
             throw new CustomException(ErrorCode.EMAIL_CODE_COOLDOWN);
         }
 
@@ -41,18 +45,29 @@ public class EmailVerificationService {
         mailSender.send(message);
 
         redisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(cooldownKey, "true", 1, TimeUnit.MINUTES);
     }
 
     public void verifyCode(String email, String code) {
         String codeKey = CODE_KEY_PREFIX + email;
+        String attemptsKey = ATTEMPTS_KEY_PREFIX + email;
         String savedCode = redisTemplate.opsForValue().get(codeKey);
 
         if (savedCode == null || !savedCode.equals(code)) {
+            Long attempts = redisTemplate.opsForValue().increment(attemptsKey);
+            redisTemplate.expire(attemptsKey, 5, TimeUnit.MINUTES);
+
+            if (attempts != null && attempts >= MAX_ATTEMPTS) {
+                redisTemplate.delete(codeKey);
+                redisTemplate.delete(attemptsKey);
+            }
+
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
         redisTemplate.opsForValue().set(VERIFIED_KEY_PREFIX + email, "true", 30, TimeUnit.MINUTES);
         redisTemplate.delete(codeKey);
+        redisTemplate.delete(attemptsKey);
     }
 
     public boolean isVerified(String email) {

@@ -30,6 +30,20 @@ class JwtProviderTest {
     }
 
     @Test
+    void 액세스_토큰에서_ADMIN_역할을_추출할_수_있다() {
+        String token = jwtProvider.generateAccessToken(1L, Role.ADMIN);
+
+        assertThat(jwtProvider.getRole(token)).isEqualTo("ADMIN");
+    }
+
+    @Test
+    void 액세스_토큰에서_USER_역할을_추출할_수_있다() {
+        String token = jwtProvider.generateAccessToken(1L, Role.USER);
+
+        assertThat(jwtProvider.getRole(token)).isEqualTo("USER");
+    }
+
+    @Test
     void 리프레시_토큰을_발급하고_검증할_수_있다() {
         String token = jwtProvider.generateRefreshToken(7L);
 
