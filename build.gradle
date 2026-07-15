@@ -39,6 +39,10 @@ dependencies {
 	testAnnotationProcessor 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	implementation 'io.github.cdimascio:dotenv-java:3.0.0' // env 파일 spring이 읽어주게 도와줌
+	implementation 'com.itextpdf:itext7-core:7.2.5'
+	implementation 'com.itextpdf:kernel:7.2.5'
+	implementation 'com.itextpdf:layout:7.2.5'
+	implementation 'com.openai:openai-java:4.43.0'
 }
 
 tasks.named('test') {
