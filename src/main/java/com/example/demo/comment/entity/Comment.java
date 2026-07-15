@@ -2,6 +2,7 @@ package com.example.demo.comment.entity;
 
 import com.example.demo.board.entity.Board;
 import com.example.demo.global.entity.BaseEntity;
+import com.example.demo.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,6 +33,10 @@ public class Comment extends BaseEntity {
      */
     @Column(nullable = false, length = 30)
     private String writer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_id")
+    private User author;
 
     /**
      * 댓글 내용

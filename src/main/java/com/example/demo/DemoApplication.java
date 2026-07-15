@@ -13,6 +13,7 @@ public class DemoApplication {
 		setIfPresent(dotenv, "MAIL_USERNAME");
 		setIfPresent(dotenv, "MAIL_PASSWORD");
 		setIfPresent(dotenv, "JWT_SECRET");
+		setIfPresent(dotenv, "OPENAI_API_KEY");
 
 		SpringApplication.run(DemoApplication.class, args);
 	}
