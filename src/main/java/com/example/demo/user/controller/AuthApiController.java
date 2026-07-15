@@ -72,4 +72,49 @@ public class AuthApiController {
 
         return ApiResponse.success(SuccessCode.USER_LOGOUT);
     }
+
+    @PostMapping("/find-id/send-code")
+    public ApiResponse<Void> findIdSendCode(@Valid @RequestBody FindIdSendCodeRequest request) {
+        userService.findIdSendCode(request.getEmail());
+
+        return ApiResponse.success(SuccessCode.FIND_ID_CODE_SENT);
+    }
+
+    @PostMapping("/find-id/verify-code")
+    public ApiResponse<FindIdResponse> findIdVerifyCode(@Valid @RequestBody FindIdVerifyCodeRequest request) {
+        FindIdResponse response = userService.findIdVerifyCode(request.getEmail(), request.getCode());
+
+        return ApiResponse.success(SuccessCode.FIND_ID_FOUND, response);
+    }
+
+    @PostMapping("/password/send-code")
+    public ApiResponse<Void> passwordSendCode(@Valid @RequestBody PasswordSendCodeRequest request) {
+        userService.passwordSendCode(request.getLoginId(), request.getEmail());
+
+        return ApiResponse.success(SuccessCode.PASSWORD_CODE_SENT);
+    }
+
+    @PostMapping("/password/verify-code")
+    public ApiResponse<Void> passwordVerifyCode(@Valid @RequestBody PasswordVerifyCodeRequest request) {
+        userService.passwordVerifyCode(request.getLoginId(), request.getEmail(), request.getCode());
+
+        return ApiResponse.success(SuccessCode.PASSWORD_CODE_VERIFIED);
+    }
+
+    @GetMapping("/password/verification-status")
+    public ApiResponse<VerificationStatusResponse> verificationStatus(@RequestParam String loginId) {
+        boolean verified = userService.isIdentityVerified(loginId);
+
+        return ApiResponse.success(
+                SuccessCode.PASSWORD_VERIFICATION_STATUS_CHECKED,
+                VerificationStatusResponse.builder().verified(verified).build()
+        );
+    }
+
+    @PostMapping("/password/reset")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        userService.resetPassword(request.getLoginId(), request.getNewPassword());
+
+        return ApiResponse.success(SuccessCode.PASSWORD_RESET);
+    }
 }

@@ -1,5 +1,6 @@
 package com.example.demo.user.controller;
 
+import com.example.demo.user.dto.FindIdResponse;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.dto.TokenResponse;
@@ -13,6 +14,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
+
+import java.time.LocalDateTime;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -92,6 +95,61 @@ class AuthApiControllerTest {
         mockMvc.perform(post("/auth/logout")
                         .contentType("application/json")
                         .content("{\"refreshToken\":\"some-token\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 아이디찾기_인증코드_발송은_200을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/find-id/send-code")
+                        .contentType("application/json")
+                        .content("{\"email\":\"tester01@example.com\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 아이디찾기_인증코드_확인은_마스킹된_아이디를_반환한다() throws Exception {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 1, 1, 12, 0);
+        when(userService.findIdVerifyCode("tester01@example.com", "123456")).thenReturn(
+                FindIdResponse.builder().maskedLoginId("te******").createdAt(createdAt).build()
+        );
+
+        mockMvc.perform(post("/auth/find-id/verify-code")
+                        .contentType("application/json")
+                        .content("{\"email\":\"tester01@example.com\",\"code\":\"123456\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.maskedLoginId").value("te******"));
+    }
+
+    @Test
+    void 비밀번호찾기_인증코드_발송은_200을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/password/send-code")
+                        .contentType("application/json")
+                        .content("{\"loginId\":\"tester01\",\"email\":\"tester01@example.com\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 비밀번호찾기_인증코드_확인은_200을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/password/verify-code")
+                        .contentType("application/json")
+                        .content("{\"loginId\":\"tester01\",\"email\":\"tester01@example.com\",\"code\":\"123456\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 비밀번호_재설정_인증상태_조회는_verified_값을_반환한다() throws Exception {
+        when(userService.isIdentityVerified("tester01")).thenReturn(true);
+
+        mockMvc.perform(get("/auth/password/verification-status").param("loginId", "tester01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.verified").value(true));
+    }
+
+    @Test
+    void 비밀번호_재설정은_200을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/password/reset")
+                        .contentType("application/json")
+                        .content("{\"loginId\":\"tester01\",\"newPassword\":\"newPassword123\"}"))
                 .andExpect(status().isOk());
     }
 }
