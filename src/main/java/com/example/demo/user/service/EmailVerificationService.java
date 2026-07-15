@@ -17,6 +17,7 @@ public class EmailVerificationService {
     private static final String COOLDOWN_KEY_PREFIX = "email-code-cooldown:";
     private static final String ATTEMPTS_KEY_PREFIX = "email-code-attempts:";
     private static final String VERIFIED_KEY_PREFIX = "email-verified:";
+    private static final String IDENTITY_VERIFIED_KEY_PREFIX = "identity-verified:";
     private static final int MAX_ATTEMPTS = 5;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -49,6 +50,11 @@ public class EmailVerificationService {
     }
 
     public void verifyCode(String email, String code) {
+        verifyCodeOnly(email, code);
+        redisTemplate.opsForValue().set(VERIFIED_KEY_PREFIX + email, "true", 30, TimeUnit.MINUTES);
+    }
+
+    public void verifyCodeOnly(String email, String code) {
         String codeKey = CODE_KEY_PREFIX + email;
         String attemptsKey = ATTEMPTS_KEY_PREFIX + email;
         String savedCode = redisTemplate.opsForValue().get(codeKey);
@@ -65,7 +71,6 @@ public class EmailVerificationService {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE);
         }
 
-        redisTemplate.opsForValue().set(VERIFIED_KEY_PREFIX + email, "true", 30, TimeUnit.MINUTES);
         redisTemplate.delete(codeKey);
         redisTemplate.delete(attemptsKey);
     }
@@ -76,6 +81,18 @@ public class EmailVerificationService {
 
     public void clearVerified(String email) {
         redisTemplate.delete(VERIFIED_KEY_PREFIX + email);
+    }
+
+    public void setIdentityVerified(String loginId) {
+        redisTemplate.opsForValue().set(IDENTITY_VERIFIED_KEY_PREFIX + loginId, "true", 10, TimeUnit.MINUTES);
+    }
+
+    public boolean isIdentityVerified(String loginId) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(IDENTITY_VERIFIED_KEY_PREFIX + loginId));
+    }
+
+    public void clearIdentityVerified(String loginId) {
+        redisTemplate.delete(IDENTITY_VERIFIED_KEY_PREFIX + loginId);
     }
 
     private String generateCode() {
