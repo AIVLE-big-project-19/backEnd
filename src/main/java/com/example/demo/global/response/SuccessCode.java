@@ -25,7 +25,13 @@ public enum SuccessCode {
     EMAIL_CODE_SENT("인증번호가 발송되었습니다."),
     EMAIL_CODE_VERIFIED("인증이 완료되었습니다."),
     TOKEN_REFRESHED("토큰이 재발급되었습니다."),
-    USER_LOGOUT("로그아웃 되었습니다.");
+    USER_LOGOUT("로그아웃 되었습니다."),
+    FIND_ID_CODE_SENT("인증번호가 발송되었습니다."),
+    FIND_ID_FOUND("아이디 조회 성공"),
+    PASSWORD_CODE_SENT("인증번호가 발송되었습니다."),
+    PASSWORD_CODE_VERIFIED("인증이 완료되었습니다."),
+    PASSWORD_VERIFICATION_STATUS_CHECKED("인증 상태 조회 성공"),
+    PASSWORD_RESET("비밀번호가 재설정되었습니다.");
 
     private final String message;
 

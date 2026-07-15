@@ -135,4 +135,52 @@ class EmailVerificationServiceTest {
 
         verify(valueOperations, never()).set(anyString(), anyString(), anyLong(), any(TimeUnit.class));
     }
+
+    @Test
+    void verifyCodeOnly_성공하면_email_verified_플래그는_세팅하지_않는다() {
+        when(valueOperations.get("email-code:test@example.com")).thenReturn("123456");
+
+        emailVerificationService.verifyCodeOnly("test@example.com", "123456");
+
+        verify(valueOperations, never()).set(eq("email-verified:test@example.com"), anyString(), anyLong(), any(TimeUnit.class));
+        verify(redisTemplate).delete("email-code:test@example.com");
+        verify(redisTemplate).delete("email-code-attempts:test@example.com");
+    }
+
+    @Test
+    void verifyCodeOnly_불일치하면_예외가_발생한다() {
+        when(valueOperations.get("email-code:test@example.com")).thenReturn("123456");
+        when(valueOperations.increment("email-code-attempts:test@example.com")).thenReturn(1L);
+
+        assertThatThrownBy(() -> emailVerificationService.verifyCodeOnly("test@example.com", "000000"))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    void setIdentityVerified_호출하면_10분_TTL로_저장한다() {
+        emailVerificationService.setIdentityVerified("tester01");
+
+        verify(valueOperations).set(eq("identity-verified:tester01"), eq("true"), eq(10L), eq(TimeUnit.MINUTES));
+    }
+
+    @Test
+    void isIdentityVerified_플래그가_있으면_true를_반환한다() {
+        when(redisTemplate.hasKey("identity-verified:tester01")).thenReturn(true);
+
+        assertThat(emailVerificationService.isIdentityVerified("tester01")).isTrue();
+    }
+
+    @Test
+    void isIdentityVerified_플래그가_없으면_false를_반환한다() {
+        when(redisTemplate.hasKey("identity-verified:tester01")).thenReturn(false);
+
+        assertThat(emailVerificationService.isIdentityVerified("tester01")).isFalse();
+    }
+
+    @Test
+    void clearIdentityVerified_호출하면_키를_삭제한다() {
+        emailVerificationService.clearIdentityVerified("tester01");
+
+        verify(redisTemplate).delete("identity-verified:tester01");
+    }
 }

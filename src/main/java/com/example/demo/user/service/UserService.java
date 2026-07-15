@@ -2,13 +2,16 @@ package com.example.demo.user.service;
 
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.user.dto.FindIdResponse;
 import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
@@ -16,15 +19,18 @@ public class UserService {
     private final UserRepository userRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public UserService(
             UserRepository userRepository,
             EmailVerificationService emailVerificationService,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            RefreshTokenRepository refreshTokenRepository
     ) {
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public boolean checkLoginIdAvailable(String loginId) {
@@ -55,5 +61,79 @@ public class UserService {
 
         userRepository.save(user);
         emailVerificationService.clearVerified(request.getEmail());
+    }
+
+    public void findIdSendCode(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || user.getLoginId() == null) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.sendCode(email, "아이디 찾기");
+    }
+
+    public FindIdResponse findIdVerifyCode(String email, String code) {
+        emailVerificationService.verifyCodeOnly(email, code);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getLoginId() == null) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.setIdentityVerified(user.getLoginId());
+
+        return FindIdResponse.builder()
+                .maskedLoginId(maskLoginId(user.getLoginId()))
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private String maskLoginId(String loginId) {
+        int visibleLength = Math.min(2, loginId.length());
+        String visible = loginId.substring(0, visibleLength);
+        String masked = "*".repeat(loginId.length() - visibleLength);
+        return visible + masked;
+    }
+
+    public void passwordSendCode(String loginId, String email) {
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null || !user.getEmail().equals(email)) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.sendCode(email, "비밀번호 찾기");
+    }
+
+    public void passwordVerifyCode(String loginId, String email, String code) {
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null || !user.getEmail().equals(email)) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.verifyCodeOnly(email, code);
+        emailVerificationService.setIdentityVerified(loginId);
+    }
+
+    public boolean isIdentityVerified(String loginId) {
+        return emailVerificationService.isIdentityVerified(loginId);
+    }
+
+    @Transactional
+    public void resetPassword(String loginId, String newPassword) {
+        if (!emailVerificationService.isIdentityVerified(loginId)) {
+            throw new CustomException(ErrorCode.IDENTITY_NOT_VERIFIED);
+        }
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        refreshTokenRepository.deleteByUser(user);
+
+        emailVerificationService.clearIdentityVerified(loginId);
     }
 }
