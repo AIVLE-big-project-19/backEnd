@@ -63,13 +63,27 @@ class AuthApiControllerTest {
         SignupRequest request = new SignupRequest();
         request.setLoginId("tester01");
         request.setEmail("tester01@example.com");
-        request.setPassword("password123");
+        request.setPassword("password1!");
         request.setName("테스터");
 
         mockMvc.perform(post("/auth/signup")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void 회원가입_비밀번호가_형식에_맞지_않으면_400을_반환한다() throws Exception {
+        SignupRequest request = new SignupRequest();
+        request.setLoginId("tester01");
+        request.setEmail("tester01@example.com");
+        request.setPassword("password123");
+        request.setName("테스터");
+
+        mockMvc.perform(post("/auth/signup")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -149,7 +163,15 @@ class AuthApiControllerTest {
     void 비밀번호_재설정은_200을_반환한다() throws Exception {
         mockMvc.perform(post("/auth/password/reset")
                         .contentType("application/json")
-                        .content("{\"loginId\":\"tester01\",\"newPassword\":\"newPassword123\"}"))
+                        .content("{\"loginId\":\"tester01\",\"newPassword\":\"newPassword1!\"}"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void 비밀번호_재설정_비밀번호가_형식에_맞지_않으면_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/password/reset")
+                        .contentType("application/json")
+                        .content("{\"loginId\":\"tester01\",\"newPassword\":\"newPassword123\"}"))
+                .andExpect(status().isBadRequest());
     }
 }
