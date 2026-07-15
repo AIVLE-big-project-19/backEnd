@@ -85,6 +85,7 @@ public class UserService {
         emailVerificationService.setIdentityVerified(user.getLoginId());
 
         return FindIdResponse.builder()
+                .loginId(user.getLoginId())
                 .maskedLoginId(maskLoginId(user.getLoginId()))
                 .createdAt(user.getCreatedAt())
                 .build();
