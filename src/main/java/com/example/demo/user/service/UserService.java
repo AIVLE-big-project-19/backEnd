@@ -2,6 +2,7 @@ package com.example.demo.user.service;
 
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.user.dto.FindIdResponse;
 import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
@@ -55,5 +56,35 @@ public class UserService {
 
         userRepository.save(user);
         emailVerificationService.clearVerified(request.getEmail());
+    }
+
+    public void findIdSendCode(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || user.getLoginId() == null) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.sendCode(email);
+    }
+
+    public FindIdResponse findIdVerifyCode(String email, String code) {
+        emailVerificationService.verifyCodeOnly(email, code);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        emailVerificationService.setIdentityVerified(user.getLoginId());
+
+        return FindIdResponse.builder()
+                .maskedLoginId(maskLoginId(user.getLoginId()))
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private String maskLoginId(String loginId) {
+        int visibleLength = Math.min(2, loginId.length());
+        String visible = loginId.substring(0, visibleLength);
+        String masked = "*".repeat(loginId.length() - visibleLength);
+        return visible + masked;
     }
 }
