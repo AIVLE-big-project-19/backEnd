@@ -11,6 +11,7 @@ import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserService {
@@ -119,6 +120,7 @@ public class UserService {
         return emailVerificationService.isIdentityVerified(loginId);
     }
 
+    @Transactional
     public void resetPassword(String loginId, String newPassword) {
         if (!emailVerificationService.isIdentityVerified(loginId)) {
             throw new CustomException(ErrorCode.IDENTITY_NOT_VERIFIED);
