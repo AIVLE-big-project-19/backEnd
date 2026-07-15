@@ -7,6 +7,7 @@ import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,15 +18,18 @@ public class UserService {
     private final UserRepository userRepository;
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public UserService(
             UserRepository userRepository,
             EmailVerificationService emailVerificationService,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            RefreshTokenRepository refreshTokenRepository
     ) {
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public boolean checkLoginIdAvailable(String loginId) {
@@ -64,7 +68,7 @@ public class UserService {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
 
-        emailVerificationService.sendCode(email);
+        emailVerificationService.sendCode(email, "아이디 찾기");
     }
 
     public FindIdResponse findIdVerifyCode(String email, String code) {
@@ -72,6 +76,10 @@ public class UserService {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getLoginId() == null) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
 
         emailVerificationService.setIdentityVerified(user.getLoginId());
 
@@ -94,7 +102,7 @@ public class UserService {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
 
-        emailVerificationService.sendCode(email);
+        emailVerificationService.sendCode(email, "비밀번호 찾기");
     }
 
     public void passwordVerifyCode(String loginId, String email, String code) {
@@ -121,6 +129,8 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+
+        refreshTokenRepository.deleteByUser(user);
 
         emailVerificationService.clearIdentityVerified(loginId);
     }

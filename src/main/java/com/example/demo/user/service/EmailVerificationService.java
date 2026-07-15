@@ -30,6 +30,10 @@ public class EmailVerificationService {
     }
 
     public void sendCode(String email) {
+        sendCode(email, "회원가입");
+    }
+
+    public void sendCode(String email, String purpose) {
         String codeKey = CODE_KEY_PREFIX + email;
         String cooldownKey = COOLDOWN_KEY_PREFIX + email;
 
@@ -41,7 +45,7 @@ public class EmailVerificationService {
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(email);
-        message.setSubject("[인증번호] 회원가입 이메일 인증");
+        message.setSubject("[인증번호] " + purpose + " 이메일 인증");
         message.setText("인증번호는 " + code + " 입니다. 5분 이내에 입력해주세요.");
         mailSender.send(message);
 

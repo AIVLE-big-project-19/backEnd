@@ -7,6 +7,7 @@ import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,12 +34,15 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        userService = new UserService(userRepository, emailVerificationService, passwordEncoder);
+        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository);
     }
 
     @Test
@@ -125,7 +129,7 @@ class UserServiceTest {
 
         userService.findIdSendCode("tester01@example.com");
 
-        verify(emailVerificationService).sendCode("tester01@example.com");
+        verify(emailVerificationService).sendCode("tester01@example.com", "아이디 찾기");
     }
 
     @Test
@@ -156,6 +160,24 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
         verify(emailVerificationService, never()).sendCode(anyString());
+    }
+
+    @Test
+    void 구글계정_이메일이면_아이디찾기_인증코드확인_시_예외가_발생한다() {
+        User googleUser = User.builder()
+                .loginId(null)
+                .email("google-user@example.com")
+                .provider(Provider.GOOGLE)
+                .role(Role.USER)
+                .build();
+        when(userRepository.findByEmail("google-user@example.com")).thenReturn(Optional.of(googleUser));
+
+        assertThatThrownBy(() -> userService.findIdVerifyCode("google-user@example.com", "123456"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(emailVerificationService, never()).setIdentityVerified(anyString());
     }
 
     @Test
@@ -199,7 +221,7 @@ class UserServiceTest {
 
         userService.passwordSendCode("tester01", "tester01@example.com");
 
-        verify(emailVerificationService).sendCode("tester01@example.com");
+        verify(emailVerificationService).sendCode("tester01@example.com", "비밀번호 찾기");
     }
 
     @Test
@@ -298,6 +320,7 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.IDENTITY_NOT_VERIFIED);
 
         verify(userRepository, never()).save(any());
+        verify(refreshTokenRepository, never()).deleteByUser(any());
     }
 
     @Test
@@ -317,6 +340,7 @@ class UserServiceTest {
 
         assertThat(user.getPassword()).isEqualTo("new-encoded");
         verify(userRepository).save(user);
+        verify(refreshTokenRepository).deleteByUser(user);
         verify(emailVerificationService).clearIdentityVerified("tester01");
     }
 
@@ -331,6 +355,7 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
         verify(userRepository, never()).save(any());
+        verify(refreshTokenRepository, never()).deleteByUser(any());
         verify(emailVerificationService, never()).clearIdentityVerified(anyString());
     }
 }
