@@ -186,4 +186,105 @@ class UserServiceTest {
 
         verify(emailVerificationService, never()).setIdentityVerified(anyString());
     }
+
+    @Test
+    void 아이디와_이메일이_일치하면_비밀번호찾기_인증코드를_발송한다() {
+        User user = User.builder()
+                .loginId("tester01")
+                .email("tester01@example.com")
+                .provider(Provider.LOCAL)
+                .role(Role.USER)
+                .build();
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(user));
+
+        userService.passwordSendCode("tester01", "tester01@example.com");
+
+        verify(emailVerificationService).sendCode("tester01@example.com");
+    }
+
+    @Test
+    void 아이디가_존재하지_않으면_비밀번호찾기_코드발송_시_예외가_발생한다() {
+        when(userRepository.findByLoginId("nouser")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.passwordSendCode("nouser", "nouser@example.com"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(emailVerificationService, never()).sendCode(anyString());
+    }
+
+    @Test
+    void 이메일이_아이디와_일치하지_않으면_비밀번호찾기_코드발송_시_예외가_발생한다() {
+        User user = User.builder()
+                .loginId("tester01")
+                .email("real-owner@example.com")
+                .provider(Provider.LOCAL)
+                .role(Role.USER)
+                .build();
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> userService.passwordSendCode("tester01", "attacker@example.com"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(emailVerificationService, never()).sendCode(anyString());
+    }
+
+    @Test
+    void 아이디_이메일_코드가_모두_일치하면_비밀번호찾기_인증플래그를_세팅한다() {
+        User user = User.builder()
+                .loginId("tester01")
+                .email("tester01@example.com")
+                .provider(Provider.LOCAL)
+                .role(Role.USER)
+                .build();
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(user));
+
+        userService.passwordVerifyCode("tester01", "tester01@example.com", "123456");
+
+        verify(emailVerificationService).verifyCodeOnly("tester01@example.com", "123456");
+        verify(emailVerificationService).setIdentityVerified("tester01");
+    }
+
+    @Test
+    void 아이디가_존재하지_않으면_코드확인_없이_비밀번호찾기_인증이_실패한다() {
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.passwordVerifyCode("tester01", "tester01@example.com", "123456"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(emailVerificationService, never()).verifyCodeOnly(anyString(), anyString());
+        verify(emailVerificationService, never()).setIdentityVerified(anyString());
+    }
+
+    @Test
+    void 코드가_불일치하면_비밀번호찾기_인증이_실패한다() {
+        User user = User.builder()
+                .loginId("tester01")
+                .email("tester01@example.com")
+                .provider(Provider.LOCAL)
+                .role(Role.USER)
+                .build();
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(user));
+        doThrow(new CustomException(ErrorCode.INVALID_VERIFICATION_CODE))
+                .when(emailVerificationService).verifyCodeOnly("tester01@example.com", "000000");
+
+        assertThatThrownBy(() -> userService.passwordVerifyCode("tester01", "tester01@example.com", "000000"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_VERIFICATION_CODE);
+
+        verify(emailVerificationService, never()).setIdentityVerified(anyString());
+    }
+
+    @Test
+    void isIdentityVerified는_EmailVerificationService에_위임한다() {
+        when(emailVerificationService.isIdentityVerified("tester01")).thenReturn(true);
+
+        assertThat(userService.isIdentityVerified("tester01")).isTrue();
+    }
 }

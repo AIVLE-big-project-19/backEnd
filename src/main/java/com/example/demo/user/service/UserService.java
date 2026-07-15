@@ -87,4 +87,27 @@ public class UserService {
         String masked = "*".repeat(loginId.length() - visibleLength);
         return visible + masked;
     }
+
+    public void passwordSendCode(String loginId, String email) {
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null || !user.getEmail().equals(email)) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.sendCode(email);
+    }
+
+    public void passwordVerifyCode(String loginId, String email, String code) {
+        User user = userRepository.findByLoginId(loginId).orElse(null);
+        if (user == null || !user.getEmail().equals(email)) {
+            throw new CustomException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        emailVerificationService.verifyCodeOnly(email, code);
+        emailVerificationService.setIdentityVerified(loginId);
+    }
+
+    public boolean isIdentityVerified(String loginId) {
+        return emailVerificationService.isIdentityVerified(loginId);
+    }
 }
