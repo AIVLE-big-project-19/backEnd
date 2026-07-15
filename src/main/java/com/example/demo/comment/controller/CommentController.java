@@ -8,6 +8,7 @@ import com.example.demo.global.response.SuccessCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,11 +26,12 @@ public class CommentController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CommentResponse> createComment(
             @PathVariable Long boardId,
+            @AuthenticationPrincipal Long userId,
             @Valid @RequestBody CommentRequest request){
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_CREATED,
-                commentService.createComment(boardId, request)
+                commentService.createComment(boardId, userId, request)
         );
 
     }
@@ -53,11 +55,12 @@ public class CommentController {
     @PutMapping("/comments/{commentId}")
     public ApiResponse<CommentResponse> updateComment(
             @PathVariable Long commentId,
+            @AuthenticationPrincipal Long userId,
             @Valid @RequestBody CommentRequest request){
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_UPDATED,
-                commentService.updateComment(commentId, request)
+                commentService.updateComment(commentId, userId, request)
         );
 
     }
@@ -67,9 +70,10 @@ public class CommentController {
      */
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Void> deleteComment(
-            @PathVariable Long commentId){
+            @PathVariable Long commentId,
+            @AuthenticationPrincipal Long userId){
 
-        commentService.deleteComment(commentId);
+        commentService.deleteComment(commentId, userId);
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_DELETED

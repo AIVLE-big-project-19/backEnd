@@ -5,6 +5,7 @@ import com.example.demo.global.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,6 +34,9 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/boards/*/comments").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/comments/*").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/comments/*").authenticated()
                         .anyRequest().permitAll()
                 )
 
