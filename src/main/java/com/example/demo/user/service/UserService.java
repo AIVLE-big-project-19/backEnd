@@ -110,4 +110,18 @@ public class UserService {
     public boolean isIdentityVerified(String loginId) {
         return emailVerificationService.isIdentityVerified(loginId);
     }
+
+    public void resetPassword(String loginId, String newPassword) {
+        if (!emailVerificationService.isIdentityVerified(loginId)) {
+            throw new CustomException(ErrorCode.IDENTITY_NOT_VERIFIED);
+        }
+
+        User user = userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        emailVerificationService.clearIdentityVerified(loginId);
+    }
 }

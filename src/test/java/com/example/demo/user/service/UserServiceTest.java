@@ -287,4 +287,50 @@ class UserServiceTest {
 
         assertThat(userService.isIdentityVerified("tester01")).isTrue();
     }
+
+    @Test
+    void 인증되지_않았으면_비밀번호_재설정_시_예외가_발생한다() {
+        when(emailVerificationService.isIdentityVerified("tester01")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.resetPassword("tester01", "newPassword123"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.IDENTITY_NOT_VERIFIED);
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void 인증됐으면_비밀번호를_암호화해서_저장하고_인증플래그를_지운다() {
+        User user = User.builder()
+                .loginId("tester01")
+                .email("tester01@example.com")
+                .password("old-encoded")
+                .provider(Provider.LOCAL)
+                .role(Role.USER)
+                .build();
+        when(emailVerificationService.isIdentityVerified("tester01")).thenReturn(true);
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newPassword123")).thenReturn("new-encoded");
+
+        userService.resetPassword("tester01", "newPassword123");
+
+        assertThat(user.getPassword()).isEqualTo("new-encoded");
+        verify(userRepository).save(user);
+        verify(emailVerificationService).clearIdentityVerified("tester01");
+    }
+
+    @Test
+    void 인증됐지만_사용자가_없으면_비밀번호_재설정_시_예외가_발생한다() {
+        when(emailVerificationService.isIdentityVerified("tester01")).thenReturn(true);
+        when(userRepository.findByLoginId("tester01")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.resetPassword("tester01", "newPassword123"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(userRepository, never()).save(any());
+        verify(emailVerificationService, never()).clearIdentityVerified(anyString());
+    }
 }
