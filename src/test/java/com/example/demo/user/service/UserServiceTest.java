@@ -190,6 +190,7 @@ class UserServiceTest {
 
         FindIdResponse response = userService.findIdVerifyCode("tester01@example.com", "123456");
 
+        assertThat(response.getLoginId()).isEqualTo("tester01");
         assertThat(response.getMaskedLoginId()).isEqualTo("te******");
         assertThat(response.getCreatedAt()).isEqualTo(createdAt);
         verify(emailVerificationService).verifyCodeOnly("tester01@example.com", "123456");

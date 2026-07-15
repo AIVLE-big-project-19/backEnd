@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 @Builder
 public class FindIdResponse {
 
+    private String loginId;
+
     private String maskedLoginId;
 
     private LocalDateTime createdAt;
