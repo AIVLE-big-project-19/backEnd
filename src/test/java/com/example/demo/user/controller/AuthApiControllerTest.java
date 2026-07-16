@@ -1,6 +1,7 @@
 package com.example.demo.user.controller;
 
 import com.example.demo.user.dto.FindIdResponse;
+import com.example.demo.user.dto.GoogleLoginRequest;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.SignupRequest;
 import com.example.demo.user.dto.TokenResponse;
@@ -172,6 +173,32 @@ class AuthApiControllerTest {
         mockMvc.perform(post("/auth/password/reset")
                         .contentType("application/json")
                         .content("{\"loginId\":\"tester01\",\"newPassword\":\"newPassword123\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 구글_로그인_성공시_토큰을_반환한다() throws Exception {
+        GoogleLoginRequest request = new GoogleLoginRequest();
+        request.setCode("auth-code");
+        request.setRedirectUri("http://localhost:5173/oauth/google/callback");
+
+        when(authService.googleLogin("auth-code", "http://localhost:5173/oauth/google/callback")).thenReturn(
+                TokenResponse.builder().accessToken("access").refreshToken("refresh").build()
+        );
+
+        mockMvc.perform(post("/auth/google/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").value("access"))
+                .andExpect(jsonPath("$.data.refreshToken").value("refresh"));
+    }
+
+    @Test
+    void 구글_로그인_code가_없으면_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/google/login")
+                        .contentType("application/json")
+                        .content("{\"redirectUri\":\"http://localhost:5173/oauth/google/callback\"}"))
                 .andExpect(status().isBadRequest());
     }
 }
