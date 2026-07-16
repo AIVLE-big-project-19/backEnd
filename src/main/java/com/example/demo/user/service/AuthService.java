@@ -14,6 +14,7 @@ import com.example.demo.user.oauth.GoogleOAuthClient;
 import com.example.demo.user.oauth.GoogleUserInfo;
 import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,15 +66,24 @@ public class AuthService {
         User user = userRepository.findByEmail(googleUserInfo.getEmail()).orElse(null);
 
         if (user == null) {
-            user = User.builder()
+            User newUser = User.builder()
                     .email(googleUserInfo.getEmail())
                     .name(googleUserInfo.getName())
                     .provider(Provider.GOOGLE)
                     .providerId(googleUserInfo.getProviderId())
                     .role(Role.USER)
                     .build();
-            user = userRepository.save(user);
-        } else if (user.getProvider() != Provider.GOOGLE) {
+            try {
+                user = userRepository.save(newUser);
+            } catch (DataIntegrityViolationException e) {
+                // 동시 요청으로 인해 다른 스레드가 먼저 동일 이메일로 가입을 완료한 경우.
+                // unique 제약조건 위반으로 저장에 실패했으므로, 방금 가입된 사용자를 재조회하여 처리한다.
+                user = userRepository.findByEmail(googleUserInfo.getEmail())
+                        .orElseThrow(() -> new CustomException(ErrorCode.GOOGLE_AUTH_FAILED));
+            }
+        }
+
+        if (user.getProvider() != Provider.GOOGLE) {
             throw new CustomException(ErrorCode.EMAIL_ALREADY_REGISTERED_AS_LOCAL);
         }
 
