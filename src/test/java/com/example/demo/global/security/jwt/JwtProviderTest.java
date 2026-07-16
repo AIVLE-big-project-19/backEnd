@@ -65,4 +65,12 @@ class JwtProviderTest {
         assertThat(jwtProvider.getRefreshTokenValidityMs(true)).isEqualTo(1_209_600_000L);
         assertThat(jwtProvider.getRefreshTokenValidityMs(false)).isEqualTo(86_400_000L);
     }
+
+    @Test
+    void 같은_유저에_대해_연속으로_발급한_리프레시_토큰은_서로_다르다() {
+        String first = jwtProvider.generateRefreshToken(1L);
+        String second = jwtProvider.generateRefreshToken(1L);
+
+        assertThat(first).isNotEqualTo(second);
+    }
 }
