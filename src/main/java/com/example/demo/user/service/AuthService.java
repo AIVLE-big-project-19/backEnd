@@ -6,8 +6,12 @@ import com.example.demo.global.security.jwt.JwtProvider;
 import com.example.demo.global.util.HashUtil;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.TokenResponse;
+import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.RefreshToken;
+import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.oauth.GoogleOAuthClient;
+import com.example.demo.user.oauth.GoogleUserInfo;
 import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,17 +28,20 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
+    private final GoogleOAuthClient googleOAuthClient;
 
     public AuthService(
             UserRepository userRepository,
             RefreshTokenRepository refreshTokenRepository,
             JwtProvider jwtProvider,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            GoogleOAuthClient googleOAuthClient
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProvider = jwtProvider;
         this.passwordEncoder = passwordEncoder;
+        this.googleOAuthClient = googleOAuthClient;
     }
 
     @Transactional
@@ -49,6 +56,30 @@ public class AuthService {
         refreshTokenRepository.deleteByUserAndExpiresAtBefore(user, LocalDateTime.now());
 
         return issueTokens(user, request.isRememberMe());
+    }
+
+    @Transactional
+    public TokenResponse googleLogin(String code, String redirectUri) {
+        GoogleUserInfo googleUserInfo = googleOAuthClient.fetchUserInfo(code, redirectUri);
+
+        User user = userRepository.findByEmail(googleUserInfo.getEmail()).orElse(null);
+
+        if (user == null) {
+            user = User.builder()
+                    .email(googleUserInfo.getEmail())
+                    .name(googleUserInfo.getName())
+                    .provider(Provider.GOOGLE)
+                    .providerId(googleUserInfo.getProviderId())
+                    .role(Role.USER)
+                    .build();
+            user = userRepository.save(user);
+        } else if (user.getProvider() != Provider.GOOGLE) {
+            throw new CustomException(ErrorCode.EMAIL_ALREADY_REGISTERED_AS_LOCAL);
+        }
+
+        refreshTokenRepository.deleteByUserAndExpiresAtBefore(user, LocalDateTime.now());
+
+        return issueTokens(user, true);
     }
 
     @Transactional
