@@ -41,3 +41,7 @@ jwt:
   access-token-validity-ms: 1800000
   refresh-token-validity-ms: 86400000
   refresh-token-remember-me-validity-ms: 1209600000
+
+google:
+  client-id: ${GOOGLE_CLIENT_ID:changeme.apps.googleusercontent.com}
+  client-secret: ${GOOGLE_CLIENT_SECRET:changeme-google-client-secret}
