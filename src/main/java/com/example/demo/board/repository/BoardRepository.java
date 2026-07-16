@@ -15,4 +15,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     List<Board> findByWriter(String writer);
 
+    List<Board> findByWriterOrderByCreatedAtDesc(String writer);
+
 }
