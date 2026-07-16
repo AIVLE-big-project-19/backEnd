@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/users/me", "/users/me/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/boards/*/comments").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/comments/*").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/comments/*").authenticated()
