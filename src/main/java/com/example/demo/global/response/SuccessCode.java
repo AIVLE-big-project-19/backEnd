@@ -32,6 +32,7 @@ public enum SuccessCode {
     PASSWORD_CODE_VERIFIED("인증이 완료되었습니다."),
     PASSWORD_VERIFICATION_STATUS_CHECKED("인증 상태 조회 성공"),
     PASSWORD_RESET("비밀번호가 재설정되었습니다."),
+    GOOGLE_LOGIN("구글 로그인 성공"),
 
     // Chat
     CHAT_REPLIED("답변을 생성했습니다.");
