@@ -10,6 +10,8 @@ import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.RefreshToken;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.oauth.GoogleOAuthClient;
+import com.example.demo.user.oauth.GoogleUserInfo;
 import com.example.demo.user.repository.RefreshTokenRepository;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -42,12 +45,15 @@ class AuthServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private GoogleOAuthClient googleOAuthClient;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder);
+        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient);
     }
 
     private User sampleUser() {
@@ -198,5 +204,134 @@ class AuthServiceTest {
         authService.logout("some-refresh-token");
 
         verify(refreshTokenRepository).delete(saved);
+    }
+
+    @Test
+    void 신규_구글_사용자면_자동으로_회원가입하고_토큰을_발급한다() {
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+                .providerId("google-sub-1")
+                .email("newgoogle@example.com")
+                .name("구글사용자")
+                .build();
+
+        when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
+        when(userRepository.findByEmail("newgoogle@example.com")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User saved = invocation.getArgument(0);
+            saved.setId(10L);
+            return saved;
+        });
+        when(jwtProvider.generateAccessToken(10L, Role.USER)).thenReturn("access-token");
+        when(jwtProvider.generateRefreshToken(10L)).thenReturn("refresh-token");
+        when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
+
+        TokenResponse response = authService.googleLogin("auth-code", "http://localhost:5173/callback");
+
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        User createdUser = userCaptor.getValue();
+        assertThat(createdUser.getEmail()).isEqualTo("newgoogle@example.com");
+        assertThat(createdUser.getName()).isEqualTo("구글사용자");
+        assertThat(createdUser.getProvider()).isEqualTo(Provider.GOOGLE);
+        assertThat(createdUser.getProviderId()).isEqualTo("google-sub-1");
+        assertThat(createdUser.getLoginId()).isNull();
+        assertThat(createdUser.getPassword()).isNull();
+        assertThat(createdUser.getRole()).isEqualTo(Role.USER);
+    }
+
+    @Test
+    void 기존_구글_사용자면_재가입하지_않고_토큰을_발급한다() {
+        User existing = User.builder()
+                .id(20L)
+                .email("existing@example.com")
+                .name("기존구글사용자")
+                .provider(Provider.GOOGLE)
+                .providerId("google-sub-2")
+                .role(Role.USER)
+                .build();
+
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+                .providerId("google-sub-2")
+                .email("existing@example.com")
+                .name("기존구글사용자")
+                .build();
+
+        when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
+        when(userRepository.findByEmail("existing@example.com")).thenReturn(Optional.of(existing));
+        when(jwtProvider.generateAccessToken(20L, Role.USER)).thenReturn("access-token");
+        when(jwtProvider.generateRefreshToken(20L)).thenReturn("refresh-token");
+        when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
+
+        TokenResponse response = authService.googleLogin("auth-code", "http://localhost:5173/callback");
+
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void 동시_회원가입_경쟁에서_패배하면_재조회한_사용자로_토큰을_발급한다() {
+        User recovered = User.builder()
+                .id(40L)
+                .email("racer@example.com")
+                .name("경쟁자")
+                .provider(Provider.GOOGLE)
+                .providerId("google-sub-4")
+                .role(Role.USER)
+                .build();
+
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+                .providerId("google-sub-4")
+                .email("racer@example.com")
+                .name("경쟁자")
+                .build();
+
+        when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
+        when(userRepository.findByEmail("racer@example.com"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(recovered));
+        when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate email"));
+        when(jwtProvider.generateAccessToken(40L, Role.USER)).thenReturn("access-token");
+        when(jwtProvider.generateRefreshToken(40L)).thenReturn("refresh-token");
+        when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
+
+        TokenResponse response = authService.googleLogin("auth-code", "http://localhost:5173/callback");
+
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+
+        verify(userRepository, times(1)).save(any(User.class));
+        verify(userRepository, times(2)).findByEmail("racer@example.com");
+    }
+
+    @Test
+    void 이미_로컬_계정으로_가입된_이메일이면_예외가_발생한다() {
+        User localUser = User.builder()
+                .id(30L)
+                .loginId("localuser01")
+                .email("local@example.com")
+                .password("ENCODED")
+                .name("로컬사용자")
+                .provider(Provider.LOCAL)
+                .role(Role.USER)
+                .build();
+
+        GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
+                .providerId("google-sub-3")
+                .email("local@example.com")
+                .name("로컬사용자")
+                .build();
+
+        when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
+        when(userRepository.findByEmail("local@example.com")).thenReturn(Optional.of(localUser));
+
+        assertThatThrownBy(() -> authService.googleLogin("auth-code", "http://localhost:5173/callback"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.EMAIL_ALREADY_REGISTERED_AS_LOCAL);
+
+        verify(userRepository, never()).save(any(User.class));
     }
 }

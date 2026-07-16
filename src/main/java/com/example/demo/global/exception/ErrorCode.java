@@ -21,7 +21,9 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "로그인이 만료되었습니다. 다시 로그인해주세요."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "일치하는 회원 정보를 찾을 수 없습니다."),
     IDENTITY_NOT_VERIFIED(HttpStatus.FORBIDDEN, "본인 인증이 필요합니다."),
-    CHAT_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "챗봇 응답 생성에 실패했습니다.");
+    CHAT_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "챗봇 응답 생성에 실패했습니다."),
+    GOOGLE_AUTH_FAILED(HttpStatus.BAD_GATEWAY, "구글 인증에 실패했습니다."),
+    EMAIL_ALREADY_REGISTERED_AS_LOCAL(HttpStatus.CONFLICT, "이미 일반 회원가입으로 등록된 이메일입니다. 일반 로그인을 이용해주세요.");
 
     private final HttpStatus status;
     private final String message;
