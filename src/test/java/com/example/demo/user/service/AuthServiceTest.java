@@ -28,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -48,12 +49,15 @@ class AuthServiceTest {
     @Mock
     private GoogleOAuthClient googleOAuthClient;
 
+    @Mock
+    private ConsentService consentService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient);
+        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient, consentService);
     }
 
     private User sampleUser() {
@@ -240,6 +244,8 @@ class AuthServiceTest {
         assertThat(createdUser.getLoginId()).isNull();
         assertThat(createdUser.getPassword()).isNull();
         assertThat(createdUser.getRole()).isEqualTo(Role.USER);
+
+        verify(consentService).recordSignupConsents(any(User.class), eq(false));
     }
 
     @Test
@@ -269,6 +275,7 @@ class AuthServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         verify(userRepository, never()).save(any(User.class));
+        verify(consentService, never()).recordSignupConsents(any(User.class), anyBoolean());
     }
 
     @Test
@@ -304,6 +311,7 @@ class AuthServiceTest {
 
         verify(userRepository, times(1)).save(any(User.class));
         verify(userRepository, times(2)).findByEmail("racer@example.com");
+        verify(consentService, never()).recordSignupConsents(any(User.class), anyBoolean());
     }
 
     @Test

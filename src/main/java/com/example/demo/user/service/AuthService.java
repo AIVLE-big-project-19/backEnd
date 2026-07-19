@@ -30,19 +30,22 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthClient googleOAuthClient;
+    private final ConsentService consentService;
 
     public AuthService(
             UserRepository userRepository,
             RefreshTokenRepository refreshTokenRepository,
             JwtProvider jwtProvider,
             PasswordEncoder passwordEncoder,
-            GoogleOAuthClient googleOAuthClient
+            GoogleOAuthClient googleOAuthClient,
+            ConsentService consentService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProvider = jwtProvider;
         this.passwordEncoder = passwordEncoder;
         this.googleOAuthClient = googleOAuthClient;
+        this.consentService = consentService;
     }
 
     @Transactional
@@ -75,6 +78,7 @@ public class AuthService {
                     .build();
             try {
                 user = userRepository.save(newUser);
+                consentService.recordSignupConsents(user, false);
             } catch (DataIntegrityViolationException e) {
                 // 동시 요청으로 인해 다른 스레드가 먼저 동일 이메일로 가입을 완료한 경우.
                 // unique 제약조건 위반으로 저장에 실패했으므로, 방금 가입된 사용자를 재조회하여 처리한다.
