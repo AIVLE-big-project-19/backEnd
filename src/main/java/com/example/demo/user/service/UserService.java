@@ -20,23 +20,27 @@ public class UserService {
     private final EmailVerificationService emailVerificationService;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final ConsentService consentService;
 
     public UserService(
             UserRepository userRepository,
             EmailVerificationService emailVerificationService,
             PasswordEncoder passwordEncoder,
-            RefreshTokenRepository refreshTokenRepository
+            RefreshTokenRepository refreshTokenRepository,
+            ConsentService consentService
     ) {
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.consentService = consentService;
     }
 
     public boolean checkLoginIdAvailable(String loginId) {
         return !userRepository.existsByLoginId(loginId);
     }
 
+    @Transactional
     public void signup(SignupRequest request) {
         if (!emailVerificationService.isVerified(request.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_VERIFICATION_REQUIRED);
@@ -59,7 +63,9 @@ public class UserService {
                 .role(Role.USER)
                 .build();
 
-        userRepository.save(user);
+        User saved = userRepository.save(user);
+        consentService.recordSignupConsents(saved, request.isMarketingAgreed());
+
         emailVerificationService.clearVerified(request.getEmail());
     }
 
