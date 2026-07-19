@@ -1,5 +1,6 @@
 package com.example.demo.user.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -28,4 +29,12 @@ public class SignupRequest {
 
     @NotBlank(message = "이름은 필수입니다.")
     private String name;
+
+    @AssertTrue(message = "필수 약관에 동의해야 합니다.")
+    private boolean termsAgreed;
+
+    @AssertTrue(message = "필수 약관에 동의해야 합니다.")
+    private boolean privacyAgreed;
+
+    private boolean marketingAgreed;
 }

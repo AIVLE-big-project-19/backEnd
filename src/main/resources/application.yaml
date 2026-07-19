@@ -45,3 +45,6 @@ jwt:
 google:
   client-id: ${GOOGLE_CLIENT_ID:changeme.apps.googleusercontent.com}
   client-secret: ${GOOGLE_CLIENT_SECRET:changeme-google-client-secret}
+
+terms:
+  version: "1.0"

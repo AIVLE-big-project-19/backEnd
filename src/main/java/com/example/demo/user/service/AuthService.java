@@ -30,19 +30,22 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthClient googleOAuthClient;
+    private final ConsentService consentService;
 
     public AuthService(
             UserRepository userRepository,
             RefreshTokenRepository refreshTokenRepository,
             JwtProvider jwtProvider,
             PasswordEncoder passwordEncoder,
-            GoogleOAuthClient googleOAuthClient
+            GoogleOAuthClient googleOAuthClient,
+            ConsentService consentService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtProvider = jwtProvider;
         this.passwordEncoder = passwordEncoder;
         this.googleOAuthClient = googleOAuthClient;
+        this.consentService = consentService;
     }
 
     @Transactional
@@ -75,11 +78,13 @@ public class AuthService {
                     .build();
             try {
                 user = userRepository.save(newUser);
+                consentService.recordSignupConsents(user, false);
             } catch (DataIntegrityViolationException e) {
-                // 동시 요청으로 인해 다른 스레드가 먼저 동일 이메일로 가입을 완료한 경우.
-                // unique 제약조건 위반으로 저장에 실패했으므로, 방금 가입된 사용자를 재조회하여 처리한다.
-                user = userRepository.findByEmail(googleUserInfo.getEmail())
-                        .orElseThrow(() -> new CustomException(ErrorCode.GOOGLE_AUTH_FAILED));
+                // 동시 요청으로 다른 스레드가 먼저 같은 이메일로 가입을 완료한 경우.
+                // 이 시점의 트랜잭션은 이미 rollback-only로 표시되어 세션 내 복구가 불가능하므로
+                // (커밋 시 UnexpectedRollbackException → 500), 재시도 가능한 에러로 응답한다.
+                // 사용자가 다시 로그인을 시도하면 기존 유저 경로로 정상 처리된다.
+                throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
             }
         }
 

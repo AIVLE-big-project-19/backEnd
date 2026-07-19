@@ -37,12 +37,15 @@ class UserServiceTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Mock
+    private ConsentService consentService;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository);
+        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository, consentService);
     }
 
     @Test
@@ -95,6 +98,7 @@ class UserServiceTest {
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
         when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("ENCODED");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userService.signup(request);
 
@@ -106,6 +110,22 @@ class UserServiceTest {
         assertThat(saved.getProvider()).isEqualTo(Provider.LOCAL);
         assertThat(saved.getRole()).isEqualTo(Role.USER);
         verify(emailVerificationService).clearVerified(request.getEmail());
+        verify(consentService).recordSignupConsents(any(User.class), eq(false));
+    }
+
+    @Test
+    void 마케팅_동의하고_가입하면_동의값이_true로_기록된다() {
+        SignupRequest request = validRequest();
+        request.setMarketingAgreed(true);
+        when(emailVerificationService.isVerified(request.getEmail())).thenReturn(true);
+        when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("ENCODED");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        userService.signup(request);
+
+        verify(consentService).recordSignupConsents(any(User.class), eq(true));
     }
 
     private SignupRequest validRequest() {
@@ -114,6 +134,8 @@ class UserServiceTest {
         request.setEmail("tester01@example.com");
         request.setPassword("password123");
         request.setName("테스터");
+        request.setTermsAgreed(true);
+        request.setPrivacyAgreed(true);
         return request;
     }
 

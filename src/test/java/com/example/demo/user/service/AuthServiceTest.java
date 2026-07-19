@@ -28,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -48,12 +49,15 @@ class AuthServiceTest {
     @Mock
     private GoogleOAuthClient googleOAuthClient;
 
+    @Mock
+    private ConsentService consentService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient);
+        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient, consentService);
     }
 
     private User sampleUser() {
@@ -240,6 +244,8 @@ class AuthServiceTest {
         assertThat(createdUser.getLoginId()).isNull();
         assertThat(createdUser.getPassword()).isNull();
         assertThat(createdUser.getRole()).isEqualTo(Role.USER);
+
+        verify(consentService).recordSignupConsents(any(User.class), eq(false));
     }
 
     @Test
@@ -269,19 +275,11 @@ class AuthServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         verify(userRepository, never()).save(any(User.class));
+        verify(consentService, never()).recordSignupConsents(any(User.class), anyBoolean());
     }
 
     @Test
-    void 동시_회원가입_경쟁에서_패배하면_재조회한_사용자로_토큰을_발급한다() {
-        User recovered = User.builder()
-                .id(40L)
-                .email("racer@example.com")
-                .name("경쟁자")
-                .provider(Provider.GOOGLE)
-                .providerId("google-sub-4")
-                .role(Role.USER)
-                .build();
-
+    void 동시_회원가입_경쟁에서_패배하면_재시도_가능한_예외가_발생한다() {
         GoogleUserInfo googleUserInfo = GoogleUserInfo.builder()
                 .providerId("google-sub-4")
                 .email("racer@example.com")
@@ -289,21 +287,16 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("racer@example.com"))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(recovered));
+        when(userRepository.findByEmail("racer@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate email"));
-        when(jwtProvider.generateAccessToken(40L, Role.USER)).thenReturn("access-token");
-        when(jwtProvider.generateRefreshToken(40L)).thenReturn("refresh-token");
-        when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
 
-        TokenResponse response = authService.googleLogin("auth-code", "http://localhost:5173/callback");
-
-        assertThat(response.getAccessToken()).isEqualTo("access-token");
-        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+        assertThatThrownBy(() -> authService.googleLogin("auth-code", "http://localhost:5173/callback"))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.GOOGLE_AUTH_FAILED);
 
         verify(userRepository, times(1)).save(any(User.class));
-        verify(userRepository, times(2)).findByEmail("racer@example.com");
+        verify(consentService, never()).recordSignupConsents(any(User.class), anyBoolean());
     }
 
     @Test

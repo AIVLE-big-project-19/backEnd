@@ -66,6 +66,8 @@ class AuthApiControllerTest {
         request.setEmail("tester01@example.com");
         request.setPassword("password1!");
         request.setName("테스터");
+        request.setTermsAgreed(true);
+        request.setPrivacyAgreed(true);
 
         mockMvc.perform(post("/auth/signup")
                         .contentType("application/json")
@@ -80,11 +82,30 @@ class AuthApiControllerTest {
         request.setEmail("tester01@example.com");
         request.setPassword("password123");
         request.setName("테스터");
+        request.setTermsAgreed(true);
+        request.setPrivacyAgreed(true);
 
         mockMvc.perform(post("/auth/signup")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 회원가입_필수약관에_미동의하면_400을_반환한다() throws Exception {
+        SignupRequest request = new SignupRequest();
+        request.setLoginId("tester01");
+        request.setEmail("tester01@example.com");
+        request.setPassword("password1!");
+        request.setName("테스터");
+        request.setTermsAgreed(false);
+        request.setPrivacyAgreed(true);
+
+        mockMvc.perform(post("/auth/signup")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.termsAgreed").value("필수 약관에 동의해야 합니다."));
     }
 
     @Test
