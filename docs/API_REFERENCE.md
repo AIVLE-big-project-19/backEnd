@@ -1,4 +1,4 @@
-# 로그인/회원가입 API 레퍼런스 (Phase 1 + 2 + 3)
+# 로그인/회원가입 API 레퍼런스 (Phase 1 + 2 + 3 + 4)
 
 프론트엔드 개발 시 참고용 문서입니다. `src/main/java/com/example/demo/user/` 실제 구현 코드 기준으로 작성했습니다 (초기 설계 문서와 일부 다른 부분 있음 — JWT 방식으로 전환됨).
 
@@ -45,7 +45,10 @@
   "loginId": "tester01",
   "email": "user@example.com",
   "password": "password1!",
-  "name": "홍길동"
+  "name": "홍길동",
+  "termsAgreed": true,
+  "privacyAgreed": true,
+  "marketingAgreed": false
 }
 ```
 - 성공: **201**
@@ -54,7 +57,9 @@
   - `DUPLICATE_LOGIN_ID` (409)
   - `DUPLICATE_EMAIL` (409)
   - 비밀번호 형식 불일치 (400) — 아래 검증 규칙 참고
-- 검증 규칙: loginId 4~20자, password **8~16자이며 영문/숫자/특수문자를 모두 포함**, email 형식, 전부 필수
+  - 필수 약관 미동의 (400) — `termsAgreed`/`privacyAgreed`가 `true`가 아니면. `data`에 `{"termsAgreed": "필수 약관에 동의해야 합니다."}` 형태로 내려옴
+- 검증 규칙: loginId 4~20자, password **8~16자이며 영문/숫자/특수문자를 모두 포함**, email 형식, 전부 필수. `termsAgreed`(이용약관)/`privacyAgreed`(개인정보 수집·이용)는 **필수 동의**, `marketingAgreed`(마케팅 수신)는 선택(미전송 시 false)
+- 동의 화면 구현 가이드: 전체동의 체크박스 + 항목별 체크박스(필수 2개 + 선택 1개), 필수 미체크 시 가입 버튼 비활성화 권장. 각 항목의 "전문 보기"는 15번 약관 조회 API로 본문을 불러와 모달 등으로 표시
 
 ### 5. 로그인
 `POST /auth/login`
@@ -145,6 +150,38 @@
 - 응답: `{ "data": { "accessToken": "...", "refreshToken": "..." } }` — 로그인 API와 동일한 포맷이며, 신규 이메일이면 내부적으로 자동 회원가입됩니다(구글 계정은 `loginId`/`password`가 없습니다 — 아이디/비밀번호 찾기 대상이 아닙니다).
 - 구글 로그인은 항상 "로그인상태유지"로 처리되어 refreshToken이 14일짜리로 발급됩니다.
 - 실패: `EMAIL_ALREADY_REGISTERED_AS_LOCAL` (409) — 같은 이메일로 이미 일반 회원가입된 계정이 있는 경우(자동 연동하지 않음, 일반 로그인 안내). `GOOGLE_AUTH_FAILED` (502) — code가 만료/재사용되었거나 구글 API 통신에 실패한 경우.
+- **동의 처리**: 구글 로그인으로 신규 가입되는 경우 필수 약관(이용약관/개인정보 수집·이용)에 동의한 것으로 처리되고 마케팅 수신은 미동의로 기록됩니다. 프론트는 구글 로그인 버튼 근처에 "구글 로그인 시 이용약관 및 개인정보처리방침에 동의한 것으로 간주됩니다" 문구를 표시해주세요 (문구 안의 각 약관명은 15번 API 본문을 보여주는 링크로 처리 권장).
+
+### 15. 약관 본문 조회
+`GET /terms/{type}` — `type`: `TERMS`(서비스 이용약관) 또는 `PRIVACY`(개인정보 수집·이용). 대소문자 무관, 인증 불필요.
+
+응답: `{ "data": { "type": "TERMS", "version": "1.0", "content": "...마크다운 본문..." } }`
+- `content`는 마크다운 텍스트 — 프론트에서 마크다운 렌더러로 표시 권장
+- 실패: `TERMS_NOT_FOUND` (404) — 없는 타입
+- 사용처: 회원가입 동의 항목 "전문 보기" 모달, **서비스 메인 화면 하단(푸터)의 "개인정보처리방침" 링크 페이지** (컴플라이언스 요건 — 푸터 링크 필수)
+
+### 16. 내 동의 현황 조회
+`GET /users/me/consents` — `Authorization: Bearer {accessToken}` 필요
+
+응답:
+```json
+{ "data": { "consents": [
+  { "type": "TERMS",     "agreed": true,  "version": "1.0", "agreedAt": "2026-07-16T12:00:00" },
+  { "type": "PRIVACY",   "agreed": true,  "version": "1.0", "agreedAt": "2026-07-16T12:00:00" },
+  { "type": "MARKETING", "agreed": false, "version": "1.0", "agreedAt": "2026-07-16T12:00:00" }
+] } }
+```
+- 동의 기록이 없는 항목(동의 기능 도입 전 가입자)은 `agreed`/`version`/`agreedAt`이 `null`
+- 사용처: 마이페이지 "약관 및 동의 관리" 화면
+
+### 17. 마케팅 수신 동의 변경
+`PUT /users/me/consents/marketing` — `Authorization: Bearer {accessToken}` 필요
+```json
+{ "agreed": true }
+```
+응답: `{ "data": { "type": "MARKETING", "agreed": true, "version": "1.0", "agreedAt": "..." } }`
+- 동의/철회 모두 이 API 하나로 처리 (마이페이지 토글)
+- 필수 동의(TERMS/PRIVACY)는 변경 API가 없음 — 철회하려면 회원탈퇴 절차 필요
 
 ## 에러 코드 전체 목록
 
@@ -162,6 +199,8 @@
 | 입력값 검증 실패 (`@Valid`) | 400 | 필드별 메시지가 `data`에 `{필드명: 메시지}` 형태로 들어옴 |
 | 이미 일반 회원가입된 이메일로 구글 로그인 시도 | 409 | 이미 일반 회원가입으로 등록된 이메일입니다. 일반 로그인을 이용해주세요. |
 | 구글 인증 실패(코드 만료/재사용, 구글 API 오류) | 502 | 구글 인증에 실패했습니다. |
+| 약관 타입 없음 | 404 | 약관을 찾을 수 없습니다. |
+| 필수 약관 미동의 (회원가입) | 400 | `data`에 `{termsAgreed/privacyAgreed: "필수 약관에 동의해야 합니다."}` |
 
 ## 화면 흐름 참고
 
