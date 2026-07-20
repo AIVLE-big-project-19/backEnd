@@ -48,3 +48,7 @@ google:
 
 terms:
   version: "1.0"
+
+app:
+  demo-data:
+    enabled: ${DEMO_DATA_ENABLED:true}
