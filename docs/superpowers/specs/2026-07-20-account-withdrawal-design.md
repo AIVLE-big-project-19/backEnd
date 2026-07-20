@@ -61,6 +61,7 @@
 - **이미 발급된 accessToken은 만료(최대 30분) 전까지 기술적으로 유효** — stateless JWT 구조상 즉시 무효화 불가. 대부분의 API는 삭제된 userId 조회 시 `USER_NOT_FOUND`로 실패하므로 실효 위험 낮음. refreshToken은 삭제되어 갱신 불가. (비밀번호 재설정의 기존 수용 리스크와 동일한 프로파일)
 - **재가입 시 완전한 신규 회원** — 탈퇴 이력을 남기지 않으므로(hard delete) 이전 활동과 연결 불가. 의도된 동작.
 - **Board.writer의 구조적 한계** — Board는 FK 없이 loginId 문자열로만 작성자를 기록하므로, 만약 탈퇴자와 동일한 문자열 writer를 가진 데이터가 있다면 같이 익명화된다 (loginId는 unique 제약이 있어 실제 충돌 불가, 이론상 한계만 기록).
+- **Board 익명화는 writer 값이 loginId와 정확히 일치할 때만 동작** — `boardRepository.replaceWriter(loginId, ANONYMIZED_WRITER)`는 `Board.writer`가 탈퇴자의 loginId 문자열과 정확히 같은 행만 찾아 바꾼다. 그런데 `Board.writer`는 `BoardRequest.writer`(자유 입력 텍스트, `@NotBlank`만 있고 인증된 작성자와 서버 측 바인딩이 없음— `BoardServiceImpl`/`BoardRequest` 참고)로 채워지므로, 작성 당시 실제 loginId와 다른 값을 writer로 보낸 게시글은 탈퇴 시 익명화되지 않는다. 이는 이번 Phase에서 새로 생긴 문제가 아니라 게시판 모듈의 기존 레거시 설계(FK 없는 writer 컬럼) 한계이며, 근본적인 해결은 게시글 작성 시 `Board.writer`를 인증된 사용자에 서버 측에서 바인딩하도록 게시판 모듈을 리팩터링해야 하므로 이번 범위 밖으로 둔다.
 - **감사/분쟁 대응용 최소 보존 없음** — 법령상 보존의무 데이터(결제 기록 등)가 이 서비스에 존재하지 않으므로 전량 즉시 파기가 적법.
 
 ## 코드 추가/변경 항목
