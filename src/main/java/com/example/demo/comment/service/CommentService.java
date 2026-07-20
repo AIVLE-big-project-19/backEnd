@@ -8,16 +8,16 @@ import java.util.List;
 public interface CommentService {
 
 
-    CommentResponse createComment(Long boardId, Long userId,
+    CommentResponse createComment(Long boardId, Long userId, boolean isAdmin,
                                   CommentRequest request);
 
-    List<CommentResponse> getComments(Long boardId);
+    List<CommentResponse> getComments(Long boardId, Long userId, boolean isAdmin);
 
 
-    CommentResponse updateComment(Long commentId, Long userId,
+    CommentResponse updateComment(Long commentId, Long userId, boolean isAdmin,
                                   CommentRequest request);
 
 
-    void deleteComment(Long commentId, Long userId);
+    void deleteComment(Long commentId, Long userId, boolean isAdmin);
 
 }

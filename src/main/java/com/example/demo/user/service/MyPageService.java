@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -52,8 +55,16 @@ public class MyPageService {
     @Transactional(readOnly = true)
     public List<BoardResponse> getMyBoards(Long userId) {
         User user = findUser(userId);
-        return boardRepository.findByWriterOrderByCreatedAtDesc(user.getLoginId())
-                .stream()
+        Map<Long, Board> boards = new LinkedHashMap<>();
+        boardRepository.findByAuthorOrderByCreatedAtDesc(user)
+                .forEach(board -> boards.put(board.getBoardId(), board));
+        if (user.getLoginId() != null) {
+            boardRepository.findByWriterOrderByCreatedAtDesc(user.getLoginId())
+                    .forEach(board -> boards.putIfAbsent(board.getBoardId(), board));
+        }
+        return boards.values().stream()
+                .sorted(Comparator.comparing(Board::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::toBoardResponse)
                 .toList();
     }
@@ -79,6 +90,9 @@ public class MyPageService {
                 .title(board.getTitle())
                 .content(board.getContent())
                 .writer(board.getWriter())
+                .writerName(userRepository.findByLoginId(board.getWriter())
+                        .map(User::getName)
+                        .orElse(board.getWriter()))
                 .category(board.getCategory())
                 .viewCount(board.getViewCount())
                 .createdAt(board.getCreatedAt())

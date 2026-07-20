@@ -15,7 +15,15 @@ public class CommentResponse {
 
     private String writer;
 
+    private String writerName;
+
+    private Boolean owner;
+
     private String content;
+
+    private Boolean secret;
+
+    private Boolean canView;
 
     private LocalDateTime createdAt;
 
