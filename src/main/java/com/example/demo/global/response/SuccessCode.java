@@ -36,13 +36,16 @@ public enum SuccessCode {
     MY_PROFILE_UPDATED("회원 정보가 수정되었습니다."),
     MY_PASSWORD_CHANGED("비밀번호가 변경되었습니다."),
     MY_BOARD_LIST_FOUND("내 게시글 조회 성공"),
+    ADMIN_USER_LIST_FOUND("회원 목록 조회 성공"),
+    ADMIN_USER_ROLE_UPDATED("회원 권한이 변경되었습니다."),
     GOOGLE_LOGIN("구글 로그인 성공"),
     TERMS_FOUND("약관 조회 성공"),
     CONSENT_STATUS_FOUND("동의 현황 조회 성공"),
     MARKETING_CONSENT_UPDATED("마케팅 수신 동의가 변경되었습니다."),
 
     // Chat
-    CHAT_REPLIED("답변을 생성했습니다.");
+    CHAT_REPLIED("답변을 생성했습니다."),
+    CHAT_EXCEL_ANALYZED("엑셀 후보지 분석이 완료되었습니다.");
 
     private final String message;
 

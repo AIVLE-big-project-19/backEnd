@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import com.example.demo.global.exception.CustomException;
+import com.example.demo.global.exception.ErrorCode;
 
 
 @RestController
@@ -23,7 +26,10 @@ public class BoardController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardResponse> createBoard(
-            @Valid @RequestBody BoardRequest request){
+            @Valid @RequestBody BoardRequest request,
+            Authentication authentication){
+
+        validateNoticePermission(request, authentication);
 
         return ApiResponse.success(
                 SuccessCode.BOARD_CREATED,
@@ -57,7 +63,10 @@ public class BoardController {
     @PutMapping("/{boardId}")
     public ApiResponse<BoardResponse> updateBoard(
             @PathVariable Long boardId,
-            @Valid @RequestBody BoardRequest request){
+            @Valid @RequestBody BoardRequest request,
+            Authentication authentication){
+
+        validateNoticePermission(request, authentication);
 
         return ApiResponse.success(
                 SuccessCode.BOARD_UPDATED,
@@ -76,6 +85,19 @@ public class BoardController {
                 SuccessCode.BOARD_DELETED
         );
 
+    }
+
+    private void validateNoticePermission(BoardRequest request, Authentication authentication) {
+        if (!"공지사항".equals(request.getCategory())) {
+            return;
+        }
+
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+
+        if (!isAdmin) {
+            throw new CustomException(ErrorCode.NOTICE_ADMIN_ONLY);
+        }
     }
 
 }
