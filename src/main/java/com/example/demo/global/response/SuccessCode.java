@@ -36,6 +36,8 @@ public enum SuccessCode {
     MY_PROFILE_UPDATED("회원 정보가 수정되었습니다."),
     MY_PASSWORD_CHANGED("비밀번호가 변경되었습니다."),
     MY_BOARD_LIST_FOUND("내 게시글 조회 성공"),
+    ADMIN_USER_LIST_FOUND("회원 목록 조회 성공"),
+    ADMIN_USER_ROLE_UPDATED("회원 권한이 변경되었습니다."),
     GOOGLE_LOGIN("구글 로그인 성공"),
 
     // Chat
