@@ -28,11 +28,7 @@ public class LoginAttemptService {
         String lockedKey = LOCKED_KEY_PREFIX + loginId;
 
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockedKey))) {
-            Long remainingSeconds = redisTemplate.getExpire(lockedKey);
-            long remainingMinutes = (remainingSeconds == null || remainingSeconds <= 0)
-                    ? 1
-                    : (remainingSeconds + 59) / 60;
-            throw lockedException(remainingMinutes);
+            throw lockedException(remainingMinutesCeil(redisTemplate.getExpire(lockedKey)));
         }
     }
 
@@ -61,7 +57,21 @@ public class LoginAttemptService {
     }
 
     private long lockAndGetMinutes(String loginId) {
+        String lockedKey = LOCKED_KEY_PREFIX + loginId;
         String levelKey = LOCK_LEVEL_KEY_PREFIX + loginId;
+
+        // Atomically claim the lock transition with SET NX. Only the request that actually
+        // creates the lock key may advance the lock-level counter; concurrent requests that
+        // lose this race must not each bump the level, or a single burst of failures could
+        // jump straight to a longer tier instead of always starting at tier 1.
+        boolean acquiredLock = Boolean.TRUE.equals(
+                redisTemplate.opsForValue().setIfAbsent(lockedKey, "true", LOCK_MINUTES[0], TimeUnit.MINUTES));
+
+        if (!acquiredLock) {
+            // Another concurrent request already locked this account moments ago; report
+            // whatever duration it set instead of touching the shared level counter.
+            return remainingMinutesCeil(redisTemplate.getExpire(lockedKey));
+        }
 
         Long level = redisTemplate.opsForValue().increment(levelKey);
         redisTemplate.expire(levelKey, LOCK_LEVEL_RETENTION_HOURS, TimeUnit.HOURS);
@@ -69,9 +79,18 @@ public class LoginAttemptService {
         int index = (int) Math.min(level == null ? 1L : level, LOCK_MINUTES.length) - 1;
         long lockMinutes = LOCK_MINUTES[index];
 
-        redisTemplate.opsForValue().set(LOCKED_KEY_PREFIX + loginId, "true", lockMinutes, TimeUnit.MINUTES);
+        if (lockMinutes != LOCK_MINUTES[0]) {
+            // The provisional tier-1 TTL set above doesn't match the real tier; correct it.
+            redisTemplate.expire(lockedKey, lockMinutes, TimeUnit.MINUTES);
+        }
 
         return lockMinutes;
+    }
+
+    private long remainingMinutesCeil(Long remainingSeconds) {
+        return (remainingSeconds == null || remainingSeconds <= 0)
+                ? 1
+                : (remainingSeconds + 59) / 60;
     }
 
     private CustomException lockedException(long remainingMinutes) {
