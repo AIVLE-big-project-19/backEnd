@@ -12,8 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
-import com.example.demo.global.exception.CustomException;
-import com.example.demo.global.exception.ErrorCode;
 
 
 @RestController
@@ -29,33 +27,33 @@ public class BoardController {
             @Valid @RequestBody BoardRequest request,
             Authentication authentication){
 
-        validateNoticePermission(request, authentication);
-
         return ApiResponse.success(
                 SuccessCode.BOARD_CREATED,
-                boardService.createBoard(request)
+                boardService.createBoard(request, userId(authentication), isAdmin(authentication))
         );
 
     }
 
     @GetMapping
     public ApiResponse<PageResponse<BoardResponse>> getBoards(
-            Pageable pageable){
+            Pageable pageable,
+            @RequestParam(required = false) String category){
 
         return ApiResponse.success(
                 SuccessCode.BOARD_LIST_FOUND,
-                boardService.getBoards(pageable)
+                boardService.getBoards(pageable, category)
         );
 
     }
 
     @GetMapping("/{boardId}")
     public ApiResponse<BoardResponse> getBoard(
-            @PathVariable Long boardId){
+            @PathVariable Long boardId,
+            Authentication authentication){
 
         return ApiResponse.success(
                 SuccessCode.BOARD_FOUND,
-                boardService.getBoard(boardId)
+                boardService.getBoard(boardId, userId(authentication), isAdmin(authentication))
         );
 
     }
@@ -66,20 +64,19 @@ public class BoardController {
             @Valid @RequestBody BoardRequest request,
             Authentication authentication){
 
-        validateNoticePermission(request, authentication);
-
         return ApiResponse.success(
                 SuccessCode.BOARD_UPDATED,
-                boardService.updateBoard(boardId, request)
+                boardService.updateBoard(boardId, request, userId(authentication), isAdmin(authentication))
         );
 
     }
 
     @DeleteMapping("/{boardId}")
     public ApiResponse<Void> deleteBoard(
-            @PathVariable Long boardId){
+            @PathVariable Long boardId,
+            Authentication authentication){
 
-        boardService.deleteBoard(boardId);
+        boardService.deleteBoard(boardId, userId(authentication), isAdmin(authentication));
 
         return ApiResponse.success(
                 SuccessCode.BOARD_DELETED
@@ -87,17 +84,13 @@ public class BoardController {
 
     }
 
-    private void validateNoticePermission(BoardRequest request, Authentication authentication) {
-        if (!"공지사항".equals(request.getCategory())) {
-            return;
-        }
-
-        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+    private boolean isAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+    }
 
-        if (!isAdmin) {
-            throw new CustomException(ErrorCode.NOTICE_ADMIN_ONLY);
-        }
+    private Long userId(Authentication authentication) {
+        return authentication == null ? null : (Long) authentication.getPrincipal();
     }
 
 }

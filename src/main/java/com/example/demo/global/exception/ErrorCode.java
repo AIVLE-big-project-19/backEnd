@@ -9,6 +9,12 @@ public enum ErrorCode {
     COMMENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인이 작성한 댓글만 수정하거나 삭제할 수 있습니다."),
 
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."),
+    BOARD_ACCESS_DENIED(HttpStatus.FORBIDDEN, "게시글에 접근할 권한이 없습니다."),
+    BOARD_OWNER_ONLY(HttpStatus.FORBIDDEN, "본인이 작성한 게시글만 수정하거나 삭제할 수 있습니다."),
+    ADMIN_BOARD_ONLY(HttpStatus.FORBIDDEN, "공지사항과 FAQ는 관리자만 작성, 수정 또는 삭제할 수 있습니다."),
+    INQUIRY_ADMIN_CANNOT_UPDATE(HttpStatus.FORBIDDEN, "관리자는 1:1 문의 게시글을 수정할 수 없습니다."),
+    COMMENTS_NOT_ALLOWED(HttpStatus.FORBIDDEN, "이 카테고리에서는 댓글을 사용할 수 없습니다."),
+    INQUIRY_COMMENT_ADMIN_ONLY(HttpStatus.FORBIDDEN, "1:1 문의의 댓글은 관리자만 작성, 수정 또는 삭제할 수 있습니다."),
     NOTICE_ADMIN_ONLY(HttpStatus.FORBIDDEN, "공지사항은 관리자만 작성하거나 수정할 수 있습니다."),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),

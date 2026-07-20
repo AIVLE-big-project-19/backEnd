@@ -17,6 +17,10 @@ public class BoardResponse {
 
     private String writer;
 
+    private String writerName;
+
+    private Boolean owner;
+
     private String category;
 
     private Integer viewCount;
