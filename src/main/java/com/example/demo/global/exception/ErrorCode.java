@@ -24,7 +24,8 @@ public enum ErrorCode {
     CHAT_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "챗봇 응답 생성에 실패했습니다."),
     GOOGLE_AUTH_FAILED(HttpStatus.BAD_GATEWAY, "구글 인증에 실패했습니다."),
     EMAIL_ALREADY_REGISTERED_AS_LOCAL(HttpStatus.CONFLICT, "이미 일반 회원가입으로 등록된 이메일입니다. 일반 로그인을 이용해주세요."),
-    TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "약관을 찾을 수 없습니다.");
+    TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "약관을 찾을 수 없습니다."),
+    ACCOUNT_LOCKED(HttpStatus.LOCKED, "로그인 시도 횟수를 초과하여 계정이 일시적으로 잠겼습니다.");
 
     private final HttpStatus status;
     private final String message;
