@@ -9,6 +9,7 @@ public enum ErrorCode {
     COMMENT_ACCESS_DENIED(HttpStatus.FORBIDDEN, "본인이 작성한 댓글만 수정하거나 삭제할 수 있습니다."),
 
     BOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다."),
+    NOTICE_ADMIN_ONLY(HttpStatus.FORBIDDEN, "공지사항은 관리자만 작성하거나 수정할 수 있습니다."),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
 
@@ -20,6 +21,7 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 일치하지 않습니다."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "로그인이 만료되었습니다. 다시 로그인해주세요."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "일치하는 회원 정보를 찾을 수 없습니다."),
+    LAST_ADMIN_CANNOT_BE_DEMOTED(HttpStatus.CONFLICT, "최소 한 명의 관리자는 유지되어야 합니다."),
     IDENTITY_NOT_VERIFIED(HttpStatus.FORBIDDEN, "본인 인증이 필요합니다."),
     CHAT_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "챗봇 응답 생성에 실패했습니다."),
     EXCEL_PARSE_FAILED(HttpStatus.BAD_REQUEST, "엑셀 파일을 처리할 수 없습니다. 형식을 확인해주세요."),
