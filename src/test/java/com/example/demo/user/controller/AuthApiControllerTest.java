@@ -1,5 +1,7 @@
 package com.example.demo.user.controller;
 
+import com.example.demo.global.exception.CustomException;
+import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.dto.FindIdResponse;
 import com.example.demo.user.dto.GoogleLoginRequest;
 import com.example.demo.user.dto.LoginRequest;
@@ -124,6 +126,25 @@ class AuthApiControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").value("access"))
                 .andExpect(jsonPath("$.data.refreshToken").value("refresh"));
+    }
+
+    @Test
+    void 로그인_계정이_잠겨있으면_423과_남은시간_메시지를_반환한다() throws Exception {
+        LoginRequest request = new LoginRequest();
+        request.setLoginId("tester01");
+        request.setPassword("password123");
+
+        when(authService.login(any())).thenThrow(new CustomException(
+                ErrorCode.ACCOUNT_LOCKED,
+                "로그인 시도 횟수를 초과하여 계정이 일시적으로 잠겼습니다. 12분 후 다시 시도해주세요."
+        ));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("로그인 시도 횟수를 초과하여 계정이 일시적으로 잠겼습니다. 12분 후 다시 시도해주세요."));
     }
 
     @Test

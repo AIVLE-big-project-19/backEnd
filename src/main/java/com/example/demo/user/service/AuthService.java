@@ -31,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final GoogleOAuthClient googleOAuthClient;
     private final ConsentService consentService;
+    private final LoginAttemptService loginAttemptService;
 
     public AuthService(
             UserRepository userRepository,
@@ -38,7 +39,8 @@ public class AuthService {
             JwtProvider jwtProvider,
             PasswordEncoder passwordEncoder,
             GoogleOAuthClient googleOAuthClient,
-            ConsentService consentService
+            ConsentService consentService,
+            LoginAttemptService loginAttemptService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -46,16 +48,22 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.googleOAuthClient = googleOAuthClient;
         this.consentService = consentService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
+        loginAttemptService.checkNotLocked(request.getLoginId());
+
         User user = userRepository.findByLoginId(request.getLoginId())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginAttemptService.recordFailure(request.getLoginId());
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
+
+        loginAttemptService.recordSuccess(request.getLoginId());
 
         refreshTokenRepository.deleteByUserAndExpiresAtBefore(user, LocalDateTime.now());
 

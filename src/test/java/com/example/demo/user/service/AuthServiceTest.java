@@ -52,12 +52,15 @@ class AuthServiceTest {
     @Mock
     private ConsentService consentService;
 
+    @Mock
+    private LoginAttemptService loginAttemptService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient, consentService);
+        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient, consentService, loginAttemptService);
     }
 
     private User sampleUser() {
@@ -84,6 +87,8 @@ class AuthServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+
+        verify(loginAttemptService, never()).recordFailure(anyString());
     }
 
     @Test
@@ -99,6 +104,25 @@ class AuthServiceTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getErrorCode())
                 .isEqualTo(ErrorCode.INVALID_CREDENTIALS);
+
+        verify(loginAttemptService).recordFailure("tester01");
+    }
+
+    @Test
+    void 계정이_잠겨있으면_비밀번호_검증_없이_예외가_발생한다() {
+        LoginRequest request = new LoginRequest();
+        request.setLoginId("tester01");
+        request.setPassword("password123");
+
+        doThrow(new CustomException(ErrorCode.ACCOUNT_LOCKED, "로그인 시도 횟수를 초과하여 계정이 일시적으로 잠겼습니다. 5분 후 다시 시도해주세요."))
+                .when(loginAttemptService).checkNotLocked("tester01");
+
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.ACCOUNT_LOCKED);
+
+        verify(userRepository, never()).findByLoginId(anyString());
     }
 
     @Test
@@ -124,6 +148,8 @@ class AuthServiceTest {
         RefreshToken saved = captor.getValue();
         assertThat(saved.getTokenHash()).isEqualTo(HashUtil.sha256("refresh-token"));
         assertThat(saved.isRememberMe()).isTrue();
+
+        verify(loginAttemptService).recordSuccess("tester01");
     }
 
     @Test

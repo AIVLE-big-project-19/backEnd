@@ -40,12 +40,15 @@ class UserServiceTest {
     @Mock
     private ConsentService consentService;
 
+    @Mock
+    private LoginAttemptService loginAttemptService;
+
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository, consentService);
+        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository, consentService, loginAttemptService);
     }
 
     @Test
@@ -364,6 +367,7 @@ class UserServiceTest {
         assertThat(user.getPassword()).isEqualTo("new-encoded");
         verify(userRepository).save(user);
         verify(refreshTokenRepository).deleteByUser(user);
+        verify(loginAttemptService).clearLockState("tester01");
         verify(emailVerificationService).clearIdentityVerified("tester01");
     }
 
