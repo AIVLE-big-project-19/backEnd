@@ -21,19 +21,22 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
     private final ConsentService consentService;
+    private final LoginAttemptService loginAttemptService;
 
     public UserService(
             UserRepository userRepository,
             EmailVerificationService emailVerificationService,
             PasswordEncoder passwordEncoder,
             RefreshTokenRepository refreshTokenRepository,
-            ConsentService consentService
+            ConsentService consentService,
+            LoginAttemptService loginAttemptService
     ) {
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenRepository = refreshTokenRepository;
         this.consentService = consentService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     public boolean checkLoginIdAvailable(String loginId) {
@@ -140,6 +143,8 @@ public class UserService {
         userRepository.save(user);
 
         refreshTokenRepository.deleteByUser(user);
+
+        loginAttemptService.clearLockState(loginId);
 
         emailVerificationService.clearIdentityVerified(loginId);
     }
