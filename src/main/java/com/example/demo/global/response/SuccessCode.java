@@ -42,7 +42,8 @@ public enum SuccessCode {
     MARKETING_CONSENT_UPDATED("마케팅 수신 동의가 변경되었습니다."),
 
     // Chat
-    CHAT_REPLIED("답변을 생성했습니다.");
+    CHAT_REPLIED("답변을 생성했습니다."),
+    CHAT_EXCEL_ANALYZED("엑셀 후보지 분석이 완료되었습니다.");
 
     private final String message;
 
