@@ -60,8 +60,9 @@
 
 - **이미 발급된 accessToken은 만료(최대 30분) 전까지 기술적으로 유효** — stateless JWT 구조상 즉시 무효화 불가. 대부분의 API는 삭제된 userId 조회 시 `USER_NOT_FOUND`로 실패하므로 실효 위험 낮음. refreshToken은 삭제되어 갱신 불가. (비밀번호 재설정의 기존 수용 리스크와 동일한 프로파일)
 - **재가입 시 완전한 신규 회원** — 탈퇴 이력을 남기지 않으므로(hard delete) 이전 활동과 연결 불가. 의도된 동작.
-- **Board.writer의 구조적 한계** — Board는 FK 없이 loginId 문자열로만 작성자를 기록하므로, 만약 탈퇴자와 동일한 문자열 writer를 가진 데이터가 있다면 같이 익명화된다 (loginId는 unique 제약이 있어 실제 충돌 불가, 이론상 한계만 기록).
-- **Board 익명화는 writer 값이 loginId와 정확히 일치할 때만 동작** — `boardRepository.replaceWriter(loginId, ANONYMIZED_WRITER)`는 `Board.writer`가 탈퇴자의 loginId 문자열과 정확히 같은 행만 찾아 바꾼다. 그런데 `Board.writer`는 `BoardRequest.writer`(자유 입력 텍스트, `@NotBlank`만 있고 인증된 작성자와 서버 측 바인딩이 없음— `BoardServiceImpl`/`BoardRequest` 참고)로 채워지므로, 작성 당시 실제 loginId와 다른 값을 writer로 보낸 게시글은 탈퇴 시 익명화되지 않는다. 이는 이번 Phase에서 새로 생긴 문제가 아니라 게시판 모듈의 기존 레거시 설계(FK 없는 writer 컬럼) 한계이며, 근본적인 해결은 게시글 작성 시 `Board.writer`를 인증된 사용자에 서버 측에서 바인딩하도록 게시판 모듈을 리팩터링해야 하므로 이번 범위 밖으로 둔다.
+- **(갱신) Board에 author FK가 도입됨 — 게시글 익명화는 이제 FK 기준으로 정확히 동작한다.** `main`에 병합된 게시판 모듈 리팩터링(커밋 `7121957`, "게시판 권한 및 작성자 처리 개선")으로 `Board`에 `User author`(`@ManyToOne`) FK가 추가되고, 게시글 작성 시 `writer`/`author`가 인증된 사용자 기준으로 서버에서 채워지도록 바뀌었다. 이에 맞춰 `BoardRepository.anonymizeByAuthor(User, String)`(Comment와 동일하게 FK로 매칭해 `author`를 null 처리하고 `writer`를 교체)를 추가해 `WithdrawalService`가 무조건 호출하도록 했다 — loginId 유무와 무관하게 동작하므로 GOOGLE 계정이 작성한 게시글도 정확히 익명화된다.
+- **레거시 게시글(위 리팩터링 이전에 작성된, `author`가 null인 행)에 한해 이전 한계가 남아있음** — `boardRepository.replaceWriter(loginId, ANONYMIZED_WRITER)`는 `author IS NULL`인 행만 대상으로, `Board.writer` 문자열이 탈퇴자의 loginId와 정확히 같을 때만 매칭한다. 리팩터링 이전에는 `Board.writer`가 `BoardRequest.writer`(자유 입력 텍스트, 인증된 작성자와 서버 측 바인딩 없음)로 채워졌으므로, 그 시절 작성된 게시글 중 실제 loginId와 다른 값을 writer로 보낸 것은 익명화되지 않을 수 있다. 이 레거시 데이터를 소급 정리하는 건 이번 범위 밖이다.
+- **(사고 기록)** 이 갱신은 Phase 6 최종 리뷰가 끝난 뒤 `main`에 병합하는 과정에서 발견됐다 — 위 board FK 도입이 병합 시점에 함께 들어오면서, 익명화 없이 `users` 행만 삭제하면 `board.author_id` FK 제약 위반(500)이 나는 것을 병합 직후 통합 테스트로 재현·확인 후 수정했다.
 - **감사/분쟁 대응용 최소 보존 없음** — 법령상 보존의무 데이터(결제 기록 등)가 이 서비스에 존재하지 않으므로 전량 즉시 파기가 적법.
 
 ## 코드 추가/변경 항목
