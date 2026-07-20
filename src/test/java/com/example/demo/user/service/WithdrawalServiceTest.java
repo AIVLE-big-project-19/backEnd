@@ -93,16 +93,15 @@ class WithdrawalServiceTest {
 
         withdrawalService.withdraw(1L, "password1!");
 
-        verify(commentRepository).anonymizeByAuthor(user, "탈퇴한 사용자");
-        verify(boardRepository).replaceWriter("tester01", "탈퇴한 사용자");
-
-        InOrder inOrder = inOrder(refreshTokenRepository, userConsentRepository, userRepository);
+        InOrder inOrder = inOrder(commentRepository, boardRepository, refreshTokenRepository,
+                userConsentRepository, userRepository, loginAttemptService, emailVerificationService);
+        inOrder.verify(commentRepository).anonymizeByAuthor(user, "탈퇴한 사용자");
+        inOrder.verify(boardRepository).replaceWriter("tester01", "탈퇴한 사용자");
         inOrder.verify(refreshTokenRepository).deleteByUser(user);
         inOrder.verify(userConsentRepository).deleteByUser(user);
         inOrder.verify(userRepository).delete(user);
-
-        verify(loginAttemptService).clearLockState("tester01");
-        verify(emailVerificationService).clearVerified("tester01@example.com");
+        inOrder.verify(loginAttemptService).clearLockState("tester01");
+        inOrder.verify(emailVerificationService).clearVerified("tester01@example.com");
     }
 
     @Test
@@ -142,13 +141,16 @@ class WithdrawalServiceTest {
         withdrawalService.withdraw(2L, null);
 
         verify(passwordEncoder, never()).matches(any(), any());
-        verify(commentRepository).anonymizeByAuthor(user, "탈퇴한 사용자");
         verify(boardRepository, never()).replaceWriter(anyString(), anyString());
-        verify(refreshTokenRepository).deleteByUser(user);
-        verify(userConsentRepository).deleteByUser(user);
-        verify(userRepository).delete(user);
         verify(loginAttemptService, never()).clearLockState(anyString());
-        verify(emailVerificationService).clearVerified("google@example.com");
+
+        InOrder inOrder = inOrder(commentRepository, refreshTokenRepository,
+                userConsentRepository, userRepository, emailVerificationService);
+        inOrder.verify(commentRepository).anonymizeByAuthor(user, "탈퇴한 사용자");
+        inOrder.verify(refreshTokenRepository).deleteByUser(user);
+        inOrder.verify(userConsentRepository).deleteByUser(user);
+        inOrder.verify(userRepository).delete(user);
+        inOrder.verify(emailVerificationService).clearVerified("google@example.com");
     }
 
     @Test
