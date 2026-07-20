@@ -44,5 +44,9 @@ public class Comment extends BaseEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean secret = false;
+
 
 }

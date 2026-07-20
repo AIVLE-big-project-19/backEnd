@@ -2,8 +2,6 @@ package com.example.demo.board.controller;
 
 import com.example.demo.board.dto.BoardRequest;
 import com.example.demo.board.service.BoardService;
-import com.example.demo.global.exception.CustomException;
-import com.example.demo.global.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,9 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class BoardControllerTest {
@@ -28,16 +24,13 @@ class BoardControllerTest {
     private BoardController boardController;
 
     @Test
-    void 일반_사용자는_공지사항을_작성할_수_없다() {
+    void 일반_사용자의_권한정보를_서비스에_전달한다() {
         BoardRequest request = request("공지사항");
         var authentication = authentication("ROLE_USER");
 
-        assertThatThrownBy(() -> boardController.createBoard(request, authentication))
-                .isInstanceOf(CustomException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.NOTICE_ADMIN_ONLY);
+        boardController.createBoard(request, authentication);
 
-        verifyNoInteractions(boardService);
+        verify(boardService).createBoard(request, 1L, false);
     }
 
     @Test
@@ -47,7 +40,7 @@ class BoardControllerTest {
 
         boardController.createBoard(request, authentication);
 
-        verify(boardService).createBoard(request);
+        verify(boardService).createBoard(request, 1L, true);
     }
 
     @Test
@@ -57,7 +50,7 @@ class BoardControllerTest {
 
         boardController.createBoard(request, authentication);
 
-        verify(boardService).createBoard(request);
+        verify(boardService).createBoard(request, 1L, false);
     }
 
     private BoardRequest request(String category) {

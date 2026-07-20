@@ -56,6 +56,8 @@ public class WithdrawalService {
 
         commentRepository.anonymizeByAuthor(user, ANONYMIZED_WRITER);
 
+        boardRepository.anonymizeByAuthor(user, ANONYMIZED_WRITER);
+
         String loginId = user.getLoginId();
         if (loginId != null) {
             boardRepository.replaceWriter(loginId, ANONYMIZED_WRITER);

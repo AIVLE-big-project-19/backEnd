@@ -7,6 +7,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 import com.example.demo.comment.entity.Comment;
+import com.example.demo.user.entity.User;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +32,10 @@ public class Board extends BaseEntity {
     // 작성자_이후 수정 필요
     @Column(nullable = false, length = 30)
     private String writer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_id")
+    private User author;
 
     // 게시판 종류 (공지사항, 자유게시판 등)
     @Column(nullable = false, length = 30)

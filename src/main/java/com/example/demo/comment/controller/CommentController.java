@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,11 +28,12 @@ public class CommentController {
     public ApiResponse<CommentResponse> createComment(
             @PathVariable Long boardId,
             @AuthenticationPrincipal Long userId,
+            Authentication authentication,
             @Valid @RequestBody CommentRequest request){
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_CREATED,
-                commentService.createComment(boardId, userId, request)
+                commentService.createComment(boardId, userId, isAdmin(authentication), request)
         );
 
     }
@@ -41,11 +43,13 @@ public class CommentController {
      */
     @GetMapping("/boards/{boardId}/comments")
     public ApiResponse<List<CommentResponse>> getComments(
-            @PathVariable Long boardId){
+            @PathVariable Long boardId,
+            @AuthenticationPrincipal Long userId,
+            Authentication authentication){
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_LIST_FOUND,
-                commentService.getComments(boardId)
+                commentService.getComments(boardId, userId, isAdmin(authentication))
         );
     }
 
@@ -56,11 +60,12 @@ public class CommentController {
     public ApiResponse<CommentResponse> updateComment(
             @PathVariable Long commentId,
             @AuthenticationPrincipal Long userId,
+            Authentication authentication,
             @Valid @RequestBody CommentRequest request){
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_UPDATED,
-                commentService.updateComment(commentId, userId, request)
+                commentService.updateComment(commentId, userId, isAdmin(authentication), request)
         );
 
     }
@@ -71,14 +76,20 @@ public class CommentController {
     @DeleteMapping("/comments/{commentId}")
     public ApiResponse<Void> deleteComment(
             @PathVariable Long commentId,
-            @AuthenticationPrincipal Long userId){
+            @AuthenticationPrincipal Long userId,
+            Authentication authentication){
 
-        commentService.deleteComment(commentId, userId);
+        commentService.deleteComment(commentId, userId, isAdmin(authentication));
 
         return ApiResponse.success(
                 SuccessCode.COMMENT_DELETED
         );
 
+    }
+
+    private boolean isAdmin(Authentication authentication) {
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 
 }

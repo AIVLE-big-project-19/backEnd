@@ -115,6 +115,7 @@ class WithdrawalServiceIntegrationTest {
                 .title("내 글")
                 .content("내용")
                 .writer("withdrawer01")
+                .author(withdrawing)
                 .category("자유게시판")
                 .build());
 
@@ -129,6 +130,7 @@ class WithdrawalServiceIntegrationTest {
                 .title("남의 글")
                 .content("내용")
                 .writer("other99")
+                .author(other)
                 .category("자유게시판")
                 .build());
 
@@ -155,6 +157,7 @@ class WithdrawalServiceIntegrationTest {
 
         Board reloadedMyBoard = boardRepository.findById(myBoard.getBoardId()).orElseThrow();
         assertThat(reloadedMyBoard.getWriter()).isEqualTo(ANONYMIZED_WRITER);
+        assertThat(reloadedMyBoard.getAuthor()).isNull();
 
         Comment reloadedOtherComment = commentRepository.findById(otherComment.getCommentId()).orElseThrow();
         assertThat(reloadedOtherComment.getWriter()).isEqualTo("other99");
@@ -162,6 +165,7 @@ class WithdrawalServiceIntegrationTest {
 
         Board reloadedOtherBoard = boardRepository.findById(otherBoard.getBoardId()).orElseThrow();
         assertThat(reloadedOtherBoard.getWriter()).isEqualTo("other99");
+        assertThat(reloadedOtherBoard.getAuthor().getId()).isEqualTo(other.getId());
 
         assertThat(userRepository.findById(other.getId())).isPresent();
     }
