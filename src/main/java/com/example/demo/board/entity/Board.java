@@ -66,4 +66,8 @@ public class Board extends BaseEntity {
     )
     private List<Comment> comments = new ArrayList<>();
 
+    @Builder.Default
+    @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BoardAttachment> attachments = new ArrayList<>();
+
 }

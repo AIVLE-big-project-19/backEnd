@@ -3,6 +3,7 @@ package com.example.demo.board.service;
 import com.example.demo.board.dto.BoardRequest;
 import com.example.demo.board.entity.Board;
 import com.example.demo.board.repository.BoardRepository;
+import com.example.demo.board.repository.BoardAttachmentRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.entity.User;
@@ -25,12 +26,13 @@ class BoardServiceImplTest {
 
     @Mock BoardRepository boardRepository;
     @Mock UserRepository userRepository;
+    @Mock BoardAttachmentRepository boardAttachmentRepository;
     private BoardServiceImpl boardService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        boardService = new BoardServiceImpl(boardRepository, userRepository);
+        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository);
     }
 
     @Test

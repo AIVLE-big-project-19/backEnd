@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -28,5 +29,7 @@ public class BoardResponse {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private List<BoardAttachmentResponse> attachments;
 
 }
