@@ -13,4 +13,6 @@ public interface UserConsentRepository extends JpaRepository<UserConsent, Long> 
 
     Optional<UserConsent> findTopByUserAndConsentTypeOrderByIdDesc(User user, ConsentType consentType);
 
+    void deleteByUser(User user);
+
 }
