@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface SiteAnalysisRepository extends JpaRepository<SiteAnalysis, Long> {
     List<SiteAnalysis> findTop10ByUser_IdOrderByCreatedAtDesc(Long userId);
+    List<SiteAnalysis> findTop6ByUserIsNullOrderByCreatedAtDesc();
+    boolean existsByUserIsNullAndAddress(String address);
 }

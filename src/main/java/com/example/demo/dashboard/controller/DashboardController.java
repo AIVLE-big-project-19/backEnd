@@ -33,6 +33,11 @@ public class DashboardController {
         return ApiResponse.success(SuccessCode.BOARD_LIST_FOUND, dashboardService.history(userId));
     }
 
+    @GetMapping("/analyses/demo")
+    public ApiResponse<List<SiteAnalysisResponse>> demoAnalyses() {
+        return ApiResponse.success(SuccessCode.BOARD_LIST_FOUND, dashboardService.demoAnalyses());
+    }
+
     private Long currentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = authentication == null ? null : authentication.getPrincipal();

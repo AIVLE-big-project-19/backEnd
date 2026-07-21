@@ -52,4 +52,10 @@ public class DashboardServiceImpl implements DashboardService {
         return siteAnalysisRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId).stream()
                 .map(SiteAnalysisResponse::from).toList();
     }
+
+    @Override
+    public List<SiteAnalysisResponse> demoAnalyses() {
+        return siteAnalysisRepository.findTop6ByUserIsNullOrderByCreatedAtDesc().stream()
+                .map(SiteAnalysisResponse::from).toList();
+    }
 }
