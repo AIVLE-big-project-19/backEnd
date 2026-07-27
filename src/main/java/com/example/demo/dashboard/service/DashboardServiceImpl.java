@@ -28,6 +28,7 @@ public class DashboardServiceImpl implements DashboardService {
     public SiteAnalysisResponse analyze(Long userId, SiteAnalysisRequest request) {
         double area = request.areaM2() == null ? 100d : request.areaM2();
         double capacity = request.capacityKw() == null ? Math.max(3d, Math.round(area / 10d * 10d) / 10d) : request.capacityKw();
+        String siteType = "ROOF".equals(request.siteType()) ? "ROOF" : "LAND";
         int seed = Math.abs(request.address().hashCode());
         int irradiation = 70 + seed % 26;
         int terrain = 65 + (seed / 31) % 31;
@@ -40,7 +41,7 @@ public class DashboardServiceImpl implements DashboardService {
         User user = userId == null ? null : userRepository.findById(userId).orElse(null);
 
         SiteAnalysis saved = siteAnalysisRepository.save(SiteAnalysis.builder()
-                .user(user).address(request.address()).latitude(request.latitude()).longitude(request.longitude())
+                .user(user).address(request.address()).siteType(siteType).latitude(request.latitude()).longitude(request.longitude())
                 .areaM2(area).capacityKw(capacity).suitabilityScore(suitability).irradiationScore(irradiation)
                 .terrainScore(terrain).accessScore(access).annualGenerationKwh(annualGeneration)
                 .estimatedInstallationCost(cost).estimatedAnnualRevenue(revenue).paybackPeriodYears(payback).build());
