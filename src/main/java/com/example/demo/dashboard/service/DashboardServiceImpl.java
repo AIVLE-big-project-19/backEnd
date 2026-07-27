@@ -55,7 +55,7 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public List<SiteAnalysisResponse> demoAnalyses() {
-        return siteAnalysisRepository.findTop6ByUserIsNullOrderByCreatedAtDesc().stream()
+        return siteAnalysisRepository.findTop6ByUserIsNullAndDemoDataTrueOrderByCreatedAtDesc().stream()
                 .map(SiteAnalysisResponse::from).toList();
     }
 }

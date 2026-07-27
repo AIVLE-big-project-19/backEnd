@@ -24,6 +24,10 @@ public class SiteAnalysis extends BaseEntity {
     @Column(nullable = false, length = 255)
     private String address;
 
+    /** Seeded records shown in the public demo candidate list. */
+    @Column(nullable = false)
+    private boolean demoData;
+
     private Double latitude;
     private Double longitude;
     private Double areaM2;
@@ -36,4 +40,8 @@ public class SiteAnalysis extends BaseEntity {
     private Long estimatedInstallationCost;
     private Long estimatedAnnualRevenue;
     private Double paybackPeriodYears;
+
+    public void markAsDemoData() {
+        this.demoData = true;
+    }
 }

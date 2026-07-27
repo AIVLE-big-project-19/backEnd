@@ -28,13 +28,18 @@ public class DashboardDemoDataInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        List<SiteAnalysis> missingSites = DEMO_SITES.stream()
-                .filter(site -> !siteAnalysisRepository.existsByUserIsNullAndAddress(site.address()))
-                .map(this::toEntity)
+        List<SiteAnalysis> demoSites = DEMO_SITES.stream()
+                .map(this::findOrCreateDemoSite)
                 .toList();
-        if (!missingSites.isEmpty()) {
-            siteAnalysisRepository.saveAll(missingSites);
-        }
+        siteAnalysisRepository.saveAll(demoSites);
+    }
+
+    private SiteAnalysis findOrCreateDemoSite(DemoSite site) {
+        SiteAnalysis analysis = siteAnalysisRepository.findAllByUserIsNullAndAddressOrderByCreatedAtDesc(site.address()).stream()
+                .findFirst()
+                .orElseGet(() -> toEntity(site));
+        analysis.markAsDemoData();
+        return analysis;
     }
 
     private SiteAnalysis toEntity(DemoSite site) {
@@ -43,6 +48,7 @@ public class DashboardDemoDataInitializer implements ApplicationRunner {
         long revenue = Math.round(generation * 160L);
         return SiteAnalysis.builder()
                 .address(site.address()).areaM2(site.areaM2()).capacityKw(site.capacityKw())
+                .demoData(true)
                 .suitabilityScore(site.score()).irradiationScore(site.irradiationScore())
                 .terrainScore(site.terrainScore()).accessScore(site.accessScore())
                 .annualGenerationKwh(generation).estimatedInstallationCost(cost)
