@@ -56,5 +56,5 @@ app:
 ai:
   server:
     # AI 분석 서버 나중에 수정하기
-    base-url: ${AI_SERVER_URL:http://localhost:9000}
+    base-url: ${AI_SERVER_URL:http://localhost:8000}
     analyze-path: ${AI_SERVER_ANALYZE_PATH:/analyze}
