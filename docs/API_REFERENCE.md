@@ -229,3 +229,33 @@
 
 - 관리자 로그인/권한 관리
 - 엔드포인트 인증 강제(현재는 토큰 없이도 모든 API 호출 가능)
+
+## AI 추천 (job 패턴)
+
+지자체 유휴재산 엑셀을 업로드하면 AI 서버가 비동기로 파이프라인을 돌려 태양광 후보지 추천 목록을 생성한다. 등록은 즉시 끝나고, 완료 여부는 폴링으로 확인한다.
+
+### POST /recommendations
+`multipart/form-data`: `file`(필수, 지자체 유휴재산 엑셀 .xlsx/.xls), query `limit`(선택, 기본 3)
+
+로그인 불필요. 로그인 상태면 결과가 계정에 연결되어 저장된다.
+
+응답:
+```json
+{ "success": true, "message": "추천 작업이 등록되었습니다.", "data": { "id": 17, "status": "QUEUED" } }
+```
+
+### GET /recommendations/{id}
+등록 시 받은 `id`로 상태를 조회한다. 10~30초 주기로 폴링 권장.
+
+```json
+// 진행 중
+{ "data": { "id": 17, "status": "RUNNING", "stage": "node3_features", "funnel": null, "recommendations": null, "errorMessage": null } }
+
+// 완료
+{ "data": { "id": 17, "status": "DONE", "stage": null, "funnel": { "node0_parsed": 230 }, "recommendations": [ /* ... */ ], "errorMessage": null } }
+
+// 실패 (AI 서버 재시작으로 job 기록 소실 포함)
+{ "data": { "id": 17, "status": "FAILED", "stage": null, "funnel": null, "recommendations": null, "errorMessage": "AI 서버가 재시작되어 이전 작업 기록이 사라졌습니다. 파일을 다시 업로드해주세요." } }
+```
+
+프론트는 HTTP 상태 코드로 분기하지 않고 항상 `status` 필드(`QUEUED`/`RUNNING`/`DONE`/`FAILED`)만 보면 된다 — job 소실도 200으로 내려간다.
