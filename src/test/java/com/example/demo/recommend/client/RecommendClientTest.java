@@ -18,6 +18,8 @@ import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
@@ -47,6 +49,20 @@ class RecommendClientTest {
         JobSubmitResult result = recommendClient.submitJob(file, 3);
 
         assertThat(result.getJobId()).isEqualTo("job-123");
+        mockServer.verify();
+    }
+
+    @Test
+    void 파일_파트에_원본_파일명이_그대로_실린다() {
+        mockServer.expect(requestTo("http://ai-server.test/recommend/jobs?limit=3"))
+                .andExpect(method(POST))
+                .andExpect(content().string(containsString("filename=\"sites.xlsx\"")))
+                .andRespond(withSuccess("{\"job_id\":\"job-999\"}", MediaType.APPLICATION_JSON));
+
+        MockMultipartFile file = new MockMultipartFile("file", "sites.xlsx", "application/vnd.ms-excel", "dummy".getBytes());
+
+        recommendClient.submitJob(file, 3);
+
         mockServer.verify();
     }
 
