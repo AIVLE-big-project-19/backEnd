@@ -6,6 +6,7 @@ import com.example.demo.recommend.client.RecommendClient;
 import com.example.demo.recommend.client.dto.JobResult;
 import com.example.demo.recommend.client.dto.JobStatusResult;
 import com.example.demo.recommend.client.dto.JobSubmitResult;
+import com.example.demo.recommend.dto.RecommendationHistoryResponse;
 import com.example.demo.recommend.dto.RecommendationStatusResponse;
 import com.example.demo.recommend.dto.RecommendationSubmitResponse;
 import com.example.demo.recommend.entity.JobStatus;
@@ -21,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -226,6 +228,40 @@ class RecommendServiceTest {
         assertThat(job.getStatus()).isEqualTo(JobStatus.QUEUED);
         assertThat(response.status()).isEqualTo("QUEUED");
         verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void getHistory는_리포지토리_결과를_요약_DTO로_매핑한다() {
+        RecommendationJob doneJob = RecommendationJob.builder()
+                .id(2L)
+                .externalJobId("job-2")
+                .originalFilename("완료파일.xlsx")
+                .limitParam(3)
+                .status(JobStatus.DONE)
+                .build();
+        ReflectionTestUtils.setField(doneJob, "createdAt", java.time.LocalDateTime.of(2026, 7, 28, 14, 0));
+
+        RecommendationJob failedJob = RecommendationJob.builder()
+                .id(1L)
+                .externalJobId("job-1")
+                .originalFilename("실패파일.xlsx")
+                .limitParam(3)
+                .status(JobStatus.FAILED)
+                .errorMessage("AI 서버가 재시작되어 이전 작업 기록이 사라졌습니다. 파일을 다시 업로드해주세요.")
+                .build();
+        ReflectionTestUtils.setField(failedJob, "createdAt", java.time.LocalDateTime.of(2026, 7, 28, 13, 0));
+
+        when(jobRepository.findTop10ByUser_IdOrderByCreatedAtDesc(5L)).thenReturn(List.of(doneJob, failedJob));
+
+        List<RecommendationHistoryResponse> history = recommendService.getHistory(5L);
+
+        assertThat(history).hasSize(2);
+        assertThat(history.get(0).id()).isEqualTo(2L);
+        assertThat(history.get(0).originalFilename()).isEqualTo("완료파일.xlsx");
+        assertThat(history.get(0).status()).isEqualTo("DONE");
+        assertThat(history.get(0).errorMessage()).isNull();
+        assertThat(history.get(1).status()).isEqualTo("FAILED");
+        assertThat(history.get(1).errorMessage()).contains("재시작");
     }
 
     private RecommendationJob queuedJob() {

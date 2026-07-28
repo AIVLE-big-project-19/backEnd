@@ -1,5 +1,6 @@
 package com.example.demo.recommend.controller;
 
+import com.example.demo.recommend.dto.RecommendationHistoryResponse;
 import com.example.demo.recommend.dto.RecommendationStatusResponse;
 import com.example.demo.recommend.dto.RecommendationSubmitResponse;
 import com.example.demo.recommend.service.RecommendService;
@@ -20,6 +21,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -99,5 +101,33 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data.status").value("DONE"));
 
         verify(recommendService).getStatus(eq(17L), eq(5L));
+    }
+
+    @Test
+    void 비로그인_상태로_이력을_조회하면_서비스_호출_없이_실패_응답을_준다() throws Exception {
+        mockMvc.perform(get("/recommendations/me"))
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("로그인 후 추천 이력을 조회할 수 있습니다."));
+
+        verify(recommendService, never()).getHistory(any());
+    }
+
+    @Test
+    void 로그인_상태로_이력을_조회하면_userId로_조회한다() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(5L, null, List.of())
+        );
+
+        when(recommendService.getHistory(5L)).thenReturn(List.of(
+                new RecommendationHistoryResponse(17L, "대전광역시_유휴공간.xlsx", "DONE", null, null,
+                        java.time.LocalDateTime.of(2026, 7, 28, 14, 16))
+        ));
+
+        mockMvc.perform(get("/recommendations/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(17))
+                .andExpect(jsonPath("$.data[0].status").value("DONE"));
+
+        verify(recommendService).getHistory(5L);
     }
 }

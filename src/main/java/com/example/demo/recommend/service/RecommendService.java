@@ -6,6 +6,7 @@ import com.example.demo.recommend.client.RecommendClient;
 import com.example.demo.recommend.client.dto.JobResult;
 import com.example.demo.recommend.client.dto.JobStatusResult;
 import com.example.demo.recommend.client.dto.JobSubmitResult;
+import com.example.demo.recommend.dto.RecommendationHistoryResponse;
 import com.example.demo.recommend.dto.RecommendationStatusResponse;
 import com.example.demo.recommend.dto.RecommendationSubmitResponse;
 import com.example.demo.recommend.entity.JobStatus;
@@ -21,6 +22,7 @@ import com.example.demo.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
@@ -65,6 +67,20 @@ public class RecommendService {
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecommendationHistoryResponse> getHistory(Long userId) {
+        return jobRepository.findTop10ByUser_IdOrderByCreatedAtDesc(userId).stream()
+                .map(job -> new RecommendationHistoryResponse(
+                        job.getId(),
+                        job.getOriginalFilename(),
+                        job.getStatus().name(),
+                        job.getStage(),
+                        job.getErrorMessage(),
+                        job.getCreatedAt()
+                ))
+                .toList();
     }
 
     public RecommendationSubmitResponse submit(MultipartFile file, int limit, Long userId) {
