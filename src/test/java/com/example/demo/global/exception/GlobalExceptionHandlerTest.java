@@ -11,6 +11,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import tools.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -67,5 +68,21 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message", org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("jdbc:mysql"))));
+    }
+
+    @Test
+    void 업로드_용량_초과_예외는_413과_JSON_포맷으로_응답한다() throws Exception {
+        LoginRequest request = new LoginRequest();
+        request.setLoginId("tester01");
+        request.setPassword("password123");
+
+        when(authService.login(any())).thenThrow(new MaxUploadSizeExceededException(20L * 1024 * 1024));
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("업로드 가능한 파일 용량(최대 20MB)을 초과했습니다."));
     }
 }

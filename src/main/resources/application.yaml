@@ -6,6 +6,10 @@ server:
 spring:
   application:
     name: demo
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:20MB}
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/solaraivle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
