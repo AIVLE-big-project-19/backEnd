@@ -67,6 +67,22 @@ class RecommendClientTest {
     }
 
     @Test
+    void 한글_파일명은_RFC2231로_인코딩되어_비ASCII_바이트가_헤더에_그대로_실리지_않는다() {
+        mockServer.expect(requestTo("http://ai-server.test/recommend/jobs?limit=3"))
+                .andExpect(method(POST))
+                .andExpect(content().string(containsString("filename*=UTF-8''%EB%8C%80%ED%95%9C%EA%B8%80.xlsx")))
+                .andRespond(withSuccess("{\"job_id\":\"job-kr-1\"}", MediaType.APPLICATION_JSON));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "대한글.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "dummy".getBytes()
+        );
+
+        recommendClient.submitJob(file, 3);
+
+        mockServer.verify();
+    }
+
+    @Test
     void job_등록이_400이면_detail_메시지를_담은_예외를_던진다() {
         mockServer.expect(requestTo("http://ai-server.test/recommend/jobs?limit=3"))
                 .andRespond(withBadRequest()

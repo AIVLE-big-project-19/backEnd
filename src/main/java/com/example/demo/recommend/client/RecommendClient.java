@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 @Component
@@ -37,7 +39,17 @@ public class RecommendClient {
             @Value("${ai.server.recommend-jobs-path}") String jobsPath,
             ObjectMapper objectMapper
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.restClient = restClientBuilder
+                .baseUrl(baseUrl)
+                // 비ASCII(한글 등) 파일명을 RFC 2231 방식(filename*=UTF-8''...)으로 인코딩하도록 강제.
+                // 기본값(멀티파트 charset 미설정)이면 원본 파일명 바이트가 그대로 Content-Disposition
+                // 헤더에 박혀 나가서, 한글 파일명일 때 상대 서버(uvicorn/h11)가 HTTP 요청 자체를
+                // 프로토콜 단계에서 거부한다.
+                .messageConverters(converters -> converters.stream()
+                        .filter(FormHttpMessageConverter.class::isInstance)
+                        .map(FormHttpMessageConverter.class::cast)
+                        .forEach(converter -> converter.setMultipartCharset(StandardCharsets.UTF_8)))
+                .build();
         this.jobsPath = jobsPath;
         this.objectMapper = objectMapper;
     }

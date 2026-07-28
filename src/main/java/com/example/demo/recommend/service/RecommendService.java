@@ -68,10 +68,6 @@ public class RecommendService {
     }
 
     public RecommendationSubmitResponse submit(MultipartFile file, int limit, Long userId) {
-        // TEMP DIAGNOSTIC — remove after root-causing the AI_RECOMMEND_FAILED / "file field required" report.
-        log.warn("[DIAG] incoming MultipartFile: originalFilename={}, size={}, contentType={}, isEmpty={}",
-                file.getOriginalFilename(), file.getSize(), file.getContentType(), file.isEmpty());
-
         // Network call first, outside of any transaction.
         JobSubmitResult submitResult = recommendClient.submitJob(file, limit);
 
