@@ -46,7 +46,11 @@ public enum SuccessCode {
 
     // Chat
     CHAT_REPLIED("답변을 생성했습니다."),
-    CHAT_EXCEL_ANALYZED("엑셀 후보지 분석이 완료되었습니다.");
+    CHAT_EXCEL_ANALYZED("엑셀 후보지 분석이 완료되었습니다."),
+
+    // Recommend
+    RECOMMENDATION_SUBMITTED("추천 작업이 등록되었습니다."),
+    RECOMMENDATION_STATUS_FOUND("추천 작업 상태 조회 성공");
 
     private final String message;
 
