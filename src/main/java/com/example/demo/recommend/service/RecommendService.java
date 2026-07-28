@@ -3,6 +3,7 @@ package com.example.demo.recommend.service;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.recommend.client.RecommendClient;
+import com.example.demo.recommend.client.dto.JobResult;
 import com.example.demo.recommend.client.dto.JobStatusResult;
 import com.example.demo.recommend.client.dto.JobSubmitResult;
 import com.example.demo.recommend.dto.RecommendationStatusResponse;
@@ -20,13 +21,24 @@ import com.example.demo.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
 
+/**
+ * NOTE on transaction boundaries: the calls out to {@link RecommendClient} are network round-trips
+ * (bounded by the configured HTTP timeout) and must never run inside an open DB transaction, or every
+ * poll would hold a pooled connection for the duration of the call and exhaust the pool under
+ * concurrent polling. Every DB read/write in this class is therefore wrapped in its own short-lived
+ * {@link TransactionTemplate#execute} block, with the {@link RecommendClient} call happening in
+ * between, outside of any transaction. (Plain {@code @Transactional} on the public methods would not
+ * achieve this: it would wrap the network call together with the DB access in one transaction, and
+ * splitting into private helper methods would not help either, since self-invocation on {@code this}
+ * bypasses the Spring AOP transaction proxy entirely.)
+ */
 @Service
 public class RecommendService {
 
@@ -37,86 +49,120 @@ public class RecommendService {
     private final RecommendationItemRepository itemRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public RecommendService(
             RecommendClient recommendClient,
             RecommendationJobRepository jobRepository,
             RecommendationItemRepository itemRepository,
             UserRepository userRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            TransactionTemplate transactionTemplate
     ) {
         this.recommendClient = recommendClient;
         this.jobRepository = jobRepository;
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public RecommendationSubmitResponse submit(MultipartFile file, int limit, Long userId) {
+        // Network call first, outside of any transaction.
         JobSubmitResult submitResult = recommendClient.submitJob(file, limit);
-        User user = userId == null ? null : userRepository.findById(userId).orElse(null);
 
-        RecommendationJob job = jobRepository.save(RecommendationJob.builder()
-                .externalJobId(submitResult.getJobId())
-                .user(user)
-                .originalFilename(file.getOriginalFilename())
-                .limitParam(limit)
-                .status(JobStatus.QUEUED)
-                .build());
+        // DB read + write happen in a short transaction after the network call has completed.
+        RecommendationJob job = transactionTemplate.execute(status -> {
+            User user = userId == null ? null : userRepository.findById(userId).orElse(null);
+
+            return jobRepository.save(RecommendationJob.builder()
+                    .externalJobId(submitResult.getJobId())
+                    .user(user)
+                    .originalFilename(file.getOriginalFilename())
+                    .limitParam(limit)
+                    .status(JobStatus.QUEUED)
+                    .build());
+        });
 
         return new RecommendationSubmitResponse(job.getId(), job.getStatus().name());
     }
 
-    @Transactional
-    public RecommendationStatusResponse getStatus(Long jobId) {
-        RecommendationJob job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND));
+    public RecommendationStatusResponse getStatus(Long jobId, Long requesterUserId) {
+        // Load the job (and resolve the lazy owner association, needed for the ownership check
+        // below) inside a short transaction so the Hibernate session is still open.
+        RecommendationJob job = transactionTemplate.execute(status -> {
+            RecommendationJob found = jobRepository.findById(jobId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND));
+
+            if (found.getUser() != null && !found.getUser().getId().equals(requesterUserId)) {
+                // Same "not found" error as a missing id: avoids confirming to a probing caller
+                // that the id exists but belongs to someone else.
+                throw new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
+            }
+
+            return found;
+        });
 
         if (job.getStatus() == JobStatus.QUEUED || job.getStatus() == JobStatus.RUNNING) {
             return refreshFromAiServer(job);
         }
 
-        return toResponse(job, null);
+        return transactionTemplate.execute(status -> toResponse(job, null));
     }
 
     private RecommendationStatusResponse refreshFromAiServer(RecommendationJob job) {
         JobStatusResult polled;
         try {
+            // Network call, outside of any transaction.
             polled = recommendClient.pollJob(job.getExternalJobId());
         } catch (CustomException e) {
             log.warn("AI 서버 폴링 중 일시적 오류, 마지막 상태 유지: jobId={}", job.getId(), e);
-            return toResponse(job, null);
+            return transactionTemplate.execute(status -> toResponse(job, null));
         }
 
         if (polled == null) {
-            job.markFailed("AI 서버가 재시작되어 이전 작업 기록이 사라졌습니다. 파일을 다시 업로드해주세요.");
-            jobRepository.save(job);
-            return toResponse(job, null);
+            return transactionTemplate.execute(status -> {
+                job.markFailed("AI 서버가 재시작되어 이전 작업 기록이 사라졌습니다. 파일을 다시 업로드해주세요.");
+                jobRepository.save(job);
+                return toResponse(job, null);
+            });
         }
 
-        switch (polled.getStatus()) {
-            case "done" -> {
-                List<AiAnalysisResponse> recommendations = polled.getResult().getRecommendations();
-                job.markDone(objectMapper.writeValueAsString(polled.getResult().getFunnel()));
-                saveItems(job, recommendations);
-                jobRepository.save(job);
-                return toResponse(job, recommendations);
-            }
-            case "failed" -> {
+        String polledStatus = polled.getStatus();
+        if (polledStatus == null) {
+            log.warn("AI 서버 폴링 응답에 status가 없음, 마지막 상태 유지: jobId={}", job.getId());
+            return transactionTemplate.execute(status -> toResponse(job, null));
+        }
+
+        return switch (polledStatus) {
+            case "done" -> handleDone(job, polled.getResult());
+            case "failed" -> transactionTemplate.execute(status -> {
                 job.markFailed(polled.getError());
                 jobRepository.save(job);
                 return toResponse(job, null);
-            }
-            case "running" -> {
+            });
+            case "running" -> transactionTemplate.execute(status -> {
                 job.markRunning(polled.getStage());
                 jobRepository.save(job);
                 return toResponse(job, null);
-            }
-            default -> {
-                return toResponse(job, null); // "queued": 상태 변화 없음
-            }
+            });
+            default -> transactionTemplate.execute(status -> toResponse(job, null)); // "queued": 상태 변화 없음
+        };
+    }
+
+    private RecommendationStatusResponse handleDone(RecommendationJob job, JobResult result) {
+        if (result == null) {
+            log.warn("AI 서버 폴링 응답이 done인데 result가 없음, 마지막 상태 유지: jobId={}", job.getId());
+            return transactionTemplate.execute(status -> toResponse(job, null));
         }
+
+        List<AiAnalysisResponse> recommendations = result.getRecommendations();
+        return transactionTemplate.execute(status -> {
+            job.markDone(objectMapper.writeValueAsString(result.getFunnel()));
+            saveItems(job, recommendations);
+            jobRepository.save(job);
+            return toResponse(job, recommendations);
+        });
     }
 
     private void saveItems(RecommendationJob job, List<AiAnalysisResponse> recommendations) {
@@ -154,7 +200,7 @@ public class RecommendService {
             funnel = readFunnel(job.getFunnelJson());
             recommendations = freshRecommendations != null
                     ? freshRecommendations
-                    : itemRepository.findByJob(job).stream()
+                    : itemRepository.findByJobOrderById(job).stream()
                             .map(this::readPayload)
                             .toList();
         }

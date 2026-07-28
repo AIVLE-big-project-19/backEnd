@@ -13,6 +13,7 @@ import com.example.demo.recommend.entity.RecommendationJob;
 import com.example.demo.recommend.repository.RecommendationItemRepository;
 import com.example.demo.recommend.repository.RecommendationJobRepository;
 import com.example.demo.report.dto.AiAnalysisResponse;
+import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
@@ -27,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -46,15 +51,22 @@ class RecommendServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
     private RecommendService recommendService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         recommendService = new RecommendService(
-                recommendClient, jobRepository, itemRepository, userRepository, JsonMapper.builder().build()
+                recommendClient, jobRepository, itemRepository, userRepository, JsonMapper.builder().build(), transactionTemplate
         );
         when(jobRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(new SimpleTransactionStatus());
+        });
     }
 
     @Test
@@ -82,7 +94,7 @@ class RecommendServiceTest {
         job.markDone("{\"node0_parsed\":230}");
         when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
 
-        recommendService.getStatus(1L);
+        recommendService.getStatus(1L, null);
 
         verify(recommendClient, never()).pollJob(any());
     }
@@ -100,7 +112,7 @@ class RecommendServiceTest {
         polled.setResult(jobResult);
         when(recommendClient.pollJob("job-abc")).thenReturn(polled);
 
-        RecommendationStatusResponse response = recommendService.getStatus(1L);
+        RecommendationStatusResponse response = recommendService.getStatus(1L, null);
 
         assertThat(job.getStatus()).isEqualTo(JobStatus.DONE);
         assertThat(response.status()).isEqualTo("DONE");
@@ -115,7 +127,7 @@ class RecommendServiceTest {
         when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
         when(recommendClient.pollJob("job-abc")).thenReturn(null);
 
-        RecommendationStatusResponse response = recommendService.getStatus(1L);
+        RecommendationStatusResponse response = recommendService.getStatus(1L, null);
 
         assertThat(job.getStatus()).isEqualTo(JobStatus.FAILED);
         assertThat(response.errorMessage()).contains("재시작");
@@ -127,7 +139,89 @@ class RecommendServiceTest {
         when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
         when(recommendClient.pollJob("job-abc")).thenThrow(new CustomException(ErrorCode.AI_RECOMMEND_FAILED));
 
-        RecommendationStatusResponse response = recommendService.getStatus(1L);
+        RecommendationStatusResponse response = recommendService.getStatus(1L, null);
+
+        assertThat(job.getStatus()).isEqualTo(JobStatus.QUEUED);
+        assertThat(response.status()).isEqualTo("QUEUED");
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void 다른_사용자의_job을_조회하면_NOT_FOUND_예외를_던진다() {
+        RecommendationJob job = RecommendationJob.builder()
+                .id(1L)
+                .externalJobId("job-abc")
+                .originalFilename("sites.xlsx")
+                .limitParam(3)
+                .status(JobStatus.QUEUED)
+                .user(User.builder().id(99L).build())
+                .build();
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> recommendService.getStatus(1L, 1L))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
+
+        verify(recommendClient, never()).pollJob(any());
+    }
+
+    @Test
+    void 소유자가_없는_job은_누구나_조회할_수_있다() {
+        RecommendationJob job = queuedJob();
+        job.markDone("{\"node0_parsed\":230}");
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        RecommendationStatusResponse response = recommendService.getStatus(1L, null);
+
+        assertThat(response.status()).isEqualTo("DONE");
+    }
+
+    @Test
+    void 소유자와_요청자가_같으면_조회할_수_있다() {
+        RecommendationJob job = RecommendationJob.builder()
+                .id(1L)
+                .externalJobId("job-abc")
+                .originalFilename("sites.xlsx")
+                .limitParam(3)
+                .status(JobStatus.QUEUED)
+                .user(User.builder().id(5L).build())
+                .build();
+        job.markDone("{\"node0_parsed\":230}");
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        RecommendationStatusResponse response = recommendService.getStatus(1L, 5L);
+
+        assertThat(response.status()).isEqualTo("DONE");
+    }
+
+    @Test
+    void 폴링_결과의_status가_null이면_상태를_바꾸지_않는다() {
+        RecommendationJob job = queuedJob();
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        JobStatusResult polled = new JobStatusResult();
+        polled.setStatus(null);
+        when(recommendClient.pollJob("job-abc")).thenReturn(polled);
+
+        RecommendationStatusResponse response = recommendService.getStatus(1L, null);
+
+        assertThat(job.getStatus()).isEqualTo(JobStatus.QUEUED);
+        assertThat(response.status()).isEqualTo("QUEUED");
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void 폴링_결과가_done인데_result가_null이면_상태를_바꾸지_않는다() {
+        RecommendationJob job = queuedJob();
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        JobStatusResult polled = new JobStatusResult();
+        polled.setStatus("done");
+        polled.setResult(null);
+        when(recommendClient.pollJob("job-abc")).thenReturn(polled);
+
+        RecommendationStatusResponse response = recommendService.getStatus(1L, null);
 
         assertThat(job.getStatus()).isEqualTo(JobStatus.QUEUED);
         assertThat(response.status()).isEqualTo("QUEUED");

@@ -9,5 +9,5 @@ import java.util.List;
 
 @Repository
 public interface RecommendationItemRepository extends JpaRepository<RecommendationItem, Long> {
-    List<RecommendationItem> findByJob(RecommendationJob job);
+    List<RecommendationItem> findByJobOrderById(RecommendationJob job);
 }

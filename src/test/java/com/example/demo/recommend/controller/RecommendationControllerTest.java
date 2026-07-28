@@ -74,7 +74,7 @@ class RecommendationControllerTest {
 
     @Test
     void 완료된_job을_조회하면_추천목록을_반환한다() throws Exception {
-        when(recommendService.getStatus(17L)).thenReturn(new RecommendationStatusResponse(
+        when(recommendService.getStatus(eq(17L), isNull())).thenReturn(new RecommendationStatusResponse(
                 17L, "DONE", null, Map.of("node0_parsed", 230), List.of(), null
         ));
 
@@ -82,5 +82,22 @@ class RecommendationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DONE"))
                 .andExpect(jsonPath("$.data.funnel.node0_parsed").value(230));
+    }
+
+    @Test
+    void 로그인한_사용자가_조회하면_userId를_같이_전달한다() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(5L, null, List.of())
+        );
+
+        when(recommendService.getStatus(eq(17L), eq(5L))).thenReturn(new RecommendationStatusResponse(
+                17L, "DONE", null, Map.of("node0_parsed", 230), List.of(), null
+        ));
+
+        mockMvc.perform(get("/recommendations/17"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DONE"));
+
+        verify(recommendService).getStatus(eq(17L), eq(5L));
     }
 }

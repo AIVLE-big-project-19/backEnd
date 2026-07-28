@@ -61,7 +61,7 @@ class RecommendationRepositoryTest {
         assertThat(reloadedItem.getPayload()).isEqualTo(payloadJson);
         assertThat(reloadedItem.getJob().getId()).isEqualTo(job.getId());
 
-        assertThat(itemRepository.findByJob(job)).containsExactly(reloadedItem);
+        assertThat(itemRepository.findByJobOrderById(job)).containsExactly(reloadedItem);
     }
 
     @Test

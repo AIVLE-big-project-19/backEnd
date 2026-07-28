@@ -67,6 +67,22 @@ class RecommendClientTest {
     }
 
     @Test
+    void job_등록이_400이고_body에_detail이_없으면_기본_메시지를_담은_예외를_던진다() {
+        mockServer.expect(requestTo("http://ai-server.test/recommend/jobs?limit=3"))
+                .andRespond(withBadRequest()
+                        .body("{\"other_field\":\"value\"}")
+                        .contentType(MediaType.APPLICATION_JSON));
+
+        MockMultipartFile file = new MockMultipartFile("file", "sites.txt", "text/plain", "dummy".getBytes());
+
+        assertThatThrownBy(() -> recommendClient.submitJob(file, 3))
+                .isInstanceOf(CustomException.class)
+                .hasMessage(ErrorCode.AI_RECOMMEND_FAILED.getMessage())
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.AI_RECOMMEND_FAILED);
+    }
+
+    @Test
     void 폴링_응답이_done이면_결과를_파싱한다() {
         mockServer.expect(requestTo("http://ai-server.test/recommend/jobs/job-123"))
                 .andExpect(method(GET))

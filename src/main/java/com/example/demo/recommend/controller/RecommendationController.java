@@ -29,7 +29,7 @@ public class RecommendationController {
 
     @GetMapping("/{id}")
     public ApiResponse<RecommendationStatusResponse> getStatus(@PathVariable Long id) {
-        return ApiResponse.success(SuccessCode.RECOMMENDATION_STATUS_FOUND, recommendService.getStatus(id));
+        return ApiResponse.success(SuccessCode.RECOMMENDATION_STATUS_FOUND, recommendService.getStatus(id, currentUserId()));
     }
 
     private Long currentUserId() {
