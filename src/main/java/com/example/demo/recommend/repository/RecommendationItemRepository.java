@@ -10,4 +10,6 @@ import java.util.List;
 @Repository
 public interface RecommendationItemRepository extends JpaRepository<RecommendationItem, Long> {
     List<RecommendationItem> findByJobOrderById(RecommendationJob job);
+
+    void deleteByJob(RecommendationJob job);
 }

@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -129,5 +130,26 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.data[0].status").value("DONE"));
 
         verify(recommendService).getHistory(5L);
+    }
+
+    @Test
+    void 삭제_호출시_id와_userId를_서비스에_전달한다() throws Exception {
+        mockMvc.perform(delete("/recommendations/17"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(recommendService).delete(17L, null);
+    }
+
+    @Test
+    void 로그인_상태로_삭제하면_userId를_같이_전달한다() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(5L, null, List.of())
+        );
+
+        mockMvc.perform(delete("/recommendations/17"))
+                .andExpect(status().isOk());
+
+        verify(recommendService).delete(17L, 5L);
     }
 }

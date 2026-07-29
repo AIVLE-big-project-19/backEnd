@@ -44,6 +44,12 @@ public class RecommendationController {
         return ApiResponse.success(SuccessCode.RECOMMENDATION_HISTORY_FOUND, recommendService.getHistory(userId));
     }
 
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        recommendService.delete(id, currentUserId());
+        return ApiResponse.success(SuccessCode.RECOMMENDATION_DELETED);
+    }
+
     private Long currentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = authentication == null ? null : authentication.getPrincipal();

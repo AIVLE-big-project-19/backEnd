@@ -129,4 +129,26 @@ class RecommendationRepositoryTest {
         assertThat(history).allMatch(job -> job.getUser().getId().equals(owner.getId()));
         assertThat(history.get(0).getExternalJobId()).isEqualTo("job-10");
     }
+
+    @Test
+    void deleteByJob으로_item을_지우면_그_다음_job도_삭제할_수_있다() {
+        RecommendationJob job = jobRepository.save(RecommendationJob.builder()
+                .externalJobId("job-del")
+                .originalFilename("삭제될파일.xlsx")
+                .limitParam(3)
+                .status(JobStatus.QUEUED)
+                .build());
+
+        itemRepository.save(RecommendationItem.builder()
+                .job(job)
+                .targetType("LAND")
+                .payload("{}")
+                .build());
+
+        itemRepository.deleteByJob(job);
+        jobRepository.delete(job);
+
+        assertThat(itemRepository.findByJobOrderById(job)).isEmpty();
+        assertThat(jobRepository.findById(job.getId())).isEmpty();
+    }
 }

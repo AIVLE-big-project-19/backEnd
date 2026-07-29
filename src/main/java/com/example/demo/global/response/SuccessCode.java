@@ -51,7 +51,8 @@ public enum SuccessCode {
     // Recommend
     RECOMMENDATION_SUBMITTED("추천 작업이 등록되었습니다."),
     RECOMMENDATION_STATUS_FOUND("추천 작업 상태 조회 성공"),
-    RECOMMENDATION_HISTORY_FOUND("추천 이력 조회 성공");
+    RECOMMENDATION_HISTORY_FOUND("추천 이력 조회 성공"),
+    RECOMMENDATION_DELETED("추천 이력이 삭제되었습니다.");
 
     private final String message;
 

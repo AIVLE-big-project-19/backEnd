@@ -83,6 +83,19 @@ public class RecommendService {
                 .toList();
     }
 
+    @Transactional
+    public void delete(Long jobId, Long requesterUserId) {
+        RecommendationJob job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND));
+
+        if (job.getUser() != null && !job.getUser().getId().equals(requesterUserId)) {
+            throw new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
+        }
+
+        itemRepository.deleteByJob(job);
+        jobRepository.delete(job);
+    }
+
     public RecommendationSubmitResponse submit(MultipartFile file, int limit, Long userId) {
         // Network call first, outside of any transaction.
         JobSubmitResult submitResult = recommendClient.submitJob(file, limit);

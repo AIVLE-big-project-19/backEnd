@@ -264,6 +264,66 @@ class RecommendServiceTest {
         assertThat(history.get(1).errorMessage()).contains("재시작");
     }
 
+    @Test
+    void 소유자가_삭제하면_item과_job이_모두_삭제된다() {
+        RecommendationJob job = RecommendationJob.builder()
+                .id(1L)
+                .externalJobId("job-abc")
+                .originalFilename("sites.xlsx")
+                .limitParam(3)
+                .status(JobStatus.DONE)
+                .user(User.builder().id(5L).build())
+                .build();
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        recommendService.delete(1L, 5L);
+
+        verify(itemRepository).deleteByJob(job);
+        verify(jobRepository).delete(job);
+    }
+
+    @Test
+    void 소유자가_아니면_NOT_FOUND_예외를_던지고_삭제하지_않는다() {
+        RecommendationJob job = RecommendationJob.builder()
+                .id(1L)
+                .externalJobId("job-abc")
+                .originalFilename("sites.xlsx")
+                .limitParam(3)
+                .status(JobStatus.DONE)
+                .user(User.builder().id(99L).build())
+                .build();
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        assertThatThrownBy(() -> recommendService.delete(1L, 5L))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
+
+        verify(itemRepository, never()).deleteByJob(any());
+        verify(jobRepository, never()).delete(any());
+    }
+
+    @Test
+    void 익명_job은_비로그인_요청자도_삭제할_수_있다() {
+        RecommendationJob job = queuedJob();
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
+
+        recommendService.delete(1L, null);
+
+        verify(itemRepository).deleteByJob(job);
+        verify(jobRepository).delete(job);
+    }
+
+    @Test
+    void 존재하지_않는_job을_삭제하면_NOT_FOUND_예외를_던진다() {
+        when(jobRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> recommendService.delete(1L, 5L))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
+    }
+
     private RecommendationJob queuedJob() {
         return RecommendationJob.builder()
                 .id(1L)
