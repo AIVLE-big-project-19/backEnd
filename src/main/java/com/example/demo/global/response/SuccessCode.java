@@ -52,7 +52,11 @@ public enum SuccessCode {
     RECOMMENDATION_SUBMITTED("추천 작업이 등록되었습니다."),
     RECOMMENDATION_STATUS_FOUND("추천 작업 상태 조회 성공"),
     RECOMMENDATION_HISTORY_FOUND("추천 이력 조회 성공"),
-    RECOMMENDATION_DELETED("추천 이력이 삭제되었습니다.");
+    RECOMMENDATION_DELETED("추천 이력이 삭제되었습니다."),
+
+    // Idle Land
+    IDLE_LAND_SEARCH_FOUND("유휴부지 검색 결과 조회 성공"),
+    IDLE_LAND_UPLOADED("유휴부지 데이터가 갱신되었습니다.");
 
     private final String message;
 
