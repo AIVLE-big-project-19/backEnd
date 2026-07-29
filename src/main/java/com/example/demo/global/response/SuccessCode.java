@@ -46,7 +46,11 @@ public enum SuccessCode {
 
     // Chat
     CHAT_REPLIED("답변을 생성했습니다."),
-    CHAT_EXCEL_ANALYZED("엑셀 후보지 분석이 완료되었습니다.");
+    CHAT_EXCEL_ANALYZED("엑셀 후보지 분석이 완료되었습니다."),
+
+    // Idle Land
+    IDLE_LAND_SEARCH_FOUND("유휴부지 검색 결과 조회 성공"),
+    IDLE_LAND_UPLOADED("유휴부지 데이터가 갱신되었습니다.");
 
     private final String message;
 

@@ -55,6 +55,14 @@ public class ReportService {
         return buildPdf(data);
     }
 
+    // 유휴부지 검색 → ML 랭킹 흐름처럼, 이미 확보한 분석 데이터로 바로 PDF를 만들 때 사용
+    public byte[] generateReportPdf(AiAnalysisResponse data) throws IOException {
+        if (data == null) {
+            throw new IllegalStateException("분석 데이터가 없습니다.");
+        }
+        return buildPdf(data);
+    }
+
     // AI 서버 없이 PDF 레이아웃/데이터 매핑을 확인하기 위한 더미 데이터 경로
     public byte[] generateSampleReportPdf(String targetType) throws IOException {
         AiAnalysisResponse data = "LAND".equalsIgnoreCase(targetType)
