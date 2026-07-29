@@ -62,8 +62,6 @@ ai:
     # AI 분석 서버 나중에 수정하기
     base-url: ${AI_SERVER_URL:http://localhost:8000}
     analyze-path: ${AI_SERVER_ANALYZE_PATH:/analyze}
-    recommend-jobs-path: ${AI_SERVER_RECOMMEND_JOBS_PATH:/recommend/jobs}
-    request-timeout-ms: ${AI_SERVER_REQUEST_TIMEOUT_MS:30000}
 
 vision:
   ai:

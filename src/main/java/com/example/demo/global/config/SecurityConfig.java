@@ -42,7 +42,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/boards/*/comments").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/comments/*").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/comments/*").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/recommendations/*").authenticated()
                         .anyRequest().permitAll()
                 )
 
