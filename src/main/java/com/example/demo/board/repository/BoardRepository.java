@@ -19,6 +19,16 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     Page<Board> findByCategory(String category, Pageable pageable);
 
+    @Query("""
+            SELECT b FROM Board b
+            WHERE b.category = :category
+              AND (b.author = :author OR (b.author IS NULL AND b.writer = :writer))
+            """)
+    Page<Board> findByCategoryAndOwner(@Param("category") String category,
+                                       @Param("author") User author,
+                                       @Param("writer") String writer,
+                                       Pageable pageable);
+
     boolean existsByCategoryAndTitle(String category, String title);
 
     List<Board> findByTitleContaining(String keyword);

@@ -22,6 +22,8 @@ public interface BoardService {
     // 게시글 전체 조회
     PageResponse<BoardResponse> getBoards(Pageable pageable, String category);
 
+    PageResponse<BoardResponse> getBoards(Pageable pageable, String category, Long userId, boolean isAdmin);
+
     // 게시글 수정
     BoardResponse updateBoard(Long boardId, BoardRequest request, Long userId, boolean isAdmin);
 
