@@ -12,4 +12,6 @@ public interface RecommendationItemRepository extends JpaRepository<Recommendati
     List<RecommendationItem> findByJobOrderById(RecommendationJob job);
 
     void deleteByJob(RecommendationJob job);
+
+    void deleteByJobIn(List<RecommendationJob> jobs);
 }
