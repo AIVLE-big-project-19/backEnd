@@ -58,3 +58,12 @@ ai:
     # AI 분석 서버 나중에 수정하기
     base-url: ${AI_SERVER_URL:http://localhost:9000}
     analyze-path: ${AI_SERVER_ANALYZE_PATH:/analyze}
+vision:
+  ai:
+    url: http://localhost:8001/api/v1/vision/shade-analysis
+fastapi:
+  url: http://localhost:8000
+ml:
+  server:
+    # Ranking_ML FastAPI 서버 (유휴부지 예측·랭킹·SHAP)
+    base-url: ${ML_SERVER_URL:http://localhost:8002}
