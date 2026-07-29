@@ -9,6 +9,9 @@ import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +30,26 @@ public class IdleLandSearchService {
     private final IdleLandRepository idleLandRepository;
     private final MlScoringClient mlScoringClient;
 
+    public List<IdleLandSearchResultDto> findAllScored() {
+        return scoreAndSort(idleLandRepository.findAll());
+    }
+
+    public Page<IdleLandSearchResultDto> findByRegionScored(
+            String sido,
+            String sigungu,
+            int requestedPage,
+            int requestedSize
+    ) {
+        int page = Math.max(0, requestedPage);
+        int size = Math.min(1_000, Math.max(1, requestedSize));
+        List<IdleLand> matched = idleLandRepository.findAll(buildRegionSpecification(sido, sigungu));
+        List<IdleLandSearchResultDto> scored = scoreAndSort(matched);
+        int fromIndex = Math.min(page * size, scored.size());
+        int toIndex = Math.min(fromIndex + size, scored.size());
+
+        return new PageImpl<>(scored.subList(fromIndex, toIndex), PageRequest.of(page, size), scored.size());
+    }
+
     public List<IdleLandSearchResultDto> search(String query) {
         List<String> tokens = query == null
                 ? List.of()
@@ -41,7 +64,15 @@ public class IdleLandSearchService {
             return List.of();
         }
 
-        Map<String, List<IdleLand>> byType = matched.stream()
+        return scoreAndSort(matched);
+    }
+
+    private List<IdleLandSearchResultDto> scoreAndSort(List<IdleLand> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, List<IdleLand>> byType = candidates.stream()
                 .filter(row -> "LAND".equals(row.getAssetTypeNorm()) || "BUILDING".equals(row.getAssetTypeNorm()))
                 .collect(Collectors.groupingBy(IdleLand::getAssetTypeNorm));
 
@@ -95,6 +126,25 @@ public class IdleLandSearchService {
             Predicate predicate = cb.conjunction();
             for (String token : tokens) {
                 predicate = cb.and(predicate, cb.like(cb.lower(root.get("address")), "%" + token.toLowerCase() + "%"));
+            }
+            return predicate;
+        };
+    }
+
+    private Specification<IdleLand> buildRegionSpecification(String sido, String sigungu) {
+        return (root, cq, cb) -> {
+            Predicate predicate = cb.conjunction();
+            if (sido != null && !sido.isBlank()) {
+                predicate = cb.and(predicate, cb.or(
+                        cb.equal(root.get("sido"), sido),
+                        cb.like(root.get("address"), "%" + sido + "%")
+                ));
+            }
+            if (sigungu != null && !sigungu.isBlank()) {
+                predicate = cb.and(predicate, cb.or(
+                        cb.equal(root.get("sigungu"), sigungu),
+                        cb.like(root.get("address"), "%" + sigungu + "%")
+                ));
             }
             return predicate;
         };
