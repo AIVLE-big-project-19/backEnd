@@ -304,14 +304,17 @@ class RecommendServiceTest {
     }
 
     @Test
-    void 익명_job은_비로그인_요청자도_삭제할_수_있다() {
+    void 익명_job은_로그인한_사용자도_삭제할_수_없다() {
         RecommendationJob job = queuedJob();
         when(jobRepository.findById(1L)).thenReturn(Optional.of(job));
 
-        recommendService.delete(1L, null);
+        assertThatThrownBy(() -> recommendService.delete(1L, 5L))
+                .isInstanceOf(CustomException.class)
+                .extracting(e -> ((CustomException) e).getErrorCode())
+                .isEqualTo(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
 
-        verify(itemRepository).deleteByJob(job);
-        verify(jobRepository).delete(job);
+        verify(itemRepository, never()).deleteByJob(any());
+        verify(jobRepository, never()).delete(any());
     }
 
     @Test

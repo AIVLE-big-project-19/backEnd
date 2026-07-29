@@ -88,7 +88,11 @@ public class RecommendService {
         RecommendationJob job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND));
 
-        if (job.getUser() != null && !job.getUser().getId().equals(requesterUserId)) {
+        // Unlike getStatus's read policy, delete requires an owner match unconditionally --
+        // DELETE now requires authentication (SecurityConfig), so requesterUserId is never null
+        // here in practice, and an anonymous (ownerless) job can never belong to a logged-in
+        // caller. Anonymous jobs are cleaned up separately by scheduled retention, not this API.
+        if (job.getUser() == null || !job.getUser().getId().equals(requesterUserId)) {
             throw new CustomException(ErrorCode.RECOMMENDATION_JOB_NOT_FOUND);
         }
 

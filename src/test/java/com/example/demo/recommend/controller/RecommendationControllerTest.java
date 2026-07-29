@@ -132,15 +132,8 @@ class RecommendationControllerTest {
         verify(recommendService).getHistory(5L);
     }
 
-    @Test
-    void 삭제_호출시_id와_userId를_서비스에_전달한다() throws Exception {
-        mockMvc.perform(delete("/recommendations/17"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(recommendService).delete(17L, null);
-    }
-
+    // DELETE는 SecurityConfig에서 인증을 강제하므로(비로그인 요청은 컨트롤러에 도달하지 않음),
+    // 여기서는 인증된 호출이 서비스에 id/userId를 올바르게 전달하는지만 검증한다.
     @Test
     void 로그인_상태로_삭제하면_userId를_같이_전달한다() throws Exception {
         SecurityContextHolder.getContext().setAuthentication(
