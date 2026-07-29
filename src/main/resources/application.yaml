@@ -62,6 +62,8 @@ ai:
     # AI 분석 서버 나중에 수정하기
     base-url: ${AI_SERVER_URL:http://localhost:8000}
     analyze-path: ${AI_SERVER_ANALYZE_PATH:/analyze}
+    vision-csv-path: ${AI_SERVER_VISION_CSV_PATH:/vision/csv}
+    vision-csv-timeout-ms: ${AI_SERVER_VISION_CSV_TIMEOUT_MS:900000}
 
 vision:
   ai:
