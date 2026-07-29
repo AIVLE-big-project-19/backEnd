@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import java.io.IOException;
@@ -91,6 +92,11 @@ public class BoardServiceImpl implements BoardService {
 
     @Override
     public PageResponse<BoardResponse> getBoards(Pageable pageable, String category){
+        return getBoards(pageable, category, null, false);
+    }
+
+    @Override
+    public PageResponse<BoardResponse> getBoards(Pageable pageable, String category, Long userId, boolean isAdmin){
 
         Pageable newestFirst = PageRequest.of(
                 pageable.getPageNumber(),
@@ -98,12 +104,21 @@ public class BoardServiceImpl implements BoardService {
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
 
-        return PageResponse.from(
-                category == null || category.isBlank()
-                        ? boardRepository.findAll(newestFirst).map(this::entityToResponse)
-                        : boardRepository.findByCategory(category, newestFirst)
-                        .map(this::entityToResponse)
-        );
+        Page<Board> boards;
+        if (INQUIRY.equals(category) && !isAdmin) {
+            if (userId == null) {
+                boards = Page.empty(newestFirst);
+            } else {
+                User user = getUser(userId);
+                boards = boardRepository.findByCategoryAndOwner(category, user, resolveWriterKey(user), newestFirst);
+            }
+        } else if (category == null || category.isBlank()) {
+            boards = boardRepository.findAll(newestFirst);
+        } else {
+            boards = boardRepository.findByCategory(category, newestFirst);
+        }
+
+        return PageResponse.from(boards.map(board -> entityToResponse(board, userId)));
     }
 
     @Override

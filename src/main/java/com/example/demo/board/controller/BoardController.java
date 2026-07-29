@@ -52,11 +52,12 @@ public class BoardController {
     @GetMapping
     public ApiResponse<PageResponse<BoardResponse>> getBoards(
             Pageable pageable,
-            @RequestParam(required = false) String category){
+            @RequestParam(required = false) String category,
+            Authentication authentication){
 
         return ApiResponse.success(
                 SuccessCode.BOARD_LIST_FOUND,
-                boardService.getBoards(pageable, category)
+                boardService.getBoards(pageable, category, userId(authentication), isAdmin(authentication))
         );
 
     }
