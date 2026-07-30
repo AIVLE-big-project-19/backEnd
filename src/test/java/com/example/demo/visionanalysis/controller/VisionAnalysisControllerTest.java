@@ -40,7 +40,7 @@ class VisionAnalysisControllerTest {
         mockMvc.perform(multipart("/vision-analysis/csv").file(file))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("text/csv"))
-                .andExpect(header().string("Content-Disposition", "form-data; name=\"attachment\"; filename=\"vision_analysis_result.csv\""))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"vision_analysis_result.csv\""))
                 .andExpect(content().bytes(csvBytes));
 
         verify(visionAnalysisClient).fetchCsv(any(), eq(3));

@@ -27,7 +27,7 @@ public class VisionAnalysisController {
         byte[] csv = visionAnalysisClient.fetchCsv(file, limit);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("text/csv"));
-        headers.setContentDispositionFormData("attachment", "vision_analysis_result.csv");
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"vision_analysis_result.csv\"");
         return new ResponseEntity<>(csv, headers, HttpStatus.OK);
     }
 }
