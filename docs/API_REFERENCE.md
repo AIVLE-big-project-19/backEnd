@@ -225,6 +225,22 @@
 - **비밀번호 재설정(아이디찾기 경유)**: 아이디는 readonly로 이미 채워짐, 새비번+새비번확인만 입력 → 12번으로 인증 상태 확인해서 폼 분기 → 13번 호출
 - 두 진입 경로 모두 최종 제출은 동일한 13번 API
 
+## 비전 AI 분석 결과 CSV 다운로드
+
+지자체 유휴재산 파일을 업로드하면 AI 서버가 Node 0~5(파싱→필터→지오코딩→피처수집→조례필터→비전AI분석)까지 동기로 실행하고, 결과 전체를 CSV 파일로 바로 내려준다. 채점(Node 6~7)은 하지 않는다. 저장/이력 없이 한 번 요청하면 그 응답이 곧 결과다.
+
+### POST /vision-analysis/csv
+`multipart/form-data`: `file`(필수), query `limit`(선택, 기본 3)
+
+로그인 불필요. AI 서버가 지오코딩·피처수집·비전분석을 순서대로 실행하므로 응답까지 수십 초~수 분 걸릴 수 있다(서버 타임아웃 15분).
+
+성공 응답: `Content-Type: text/csv`, `Content-Disposition: attachment; filename="vision_analysis_result.csv"`인 CSV 파일 바이트.
+
+실패 응답 (AI 서버 에러를 그대로 전달):
+```json
+{ "success": false, "message": "CSV 파일만 업로드할 수 있습니다." }
+```
+
 ## 아직 없는 것 (다음 Phase 예정)
 
 - 관리자 로그인/권한 관리
