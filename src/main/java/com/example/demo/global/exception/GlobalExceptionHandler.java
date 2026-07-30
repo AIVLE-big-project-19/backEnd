@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import jakarta.validation.ConstraintViolationException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -80,6 +81,19 @@ public class GlobalExceptionHandler {
                 .body(
                         ApiResponse.fail(
                                 "업로드 가능한 파일 용량(최대 20MB)을 초과했습니다."
+                        )
+                );
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(
+            ConstraintViolationException e){
+
+        return ResponseEntity
+                .badRequest()
+                .body(
+                        ApiResponse.fail(
+                                "입력값이 올바르지 않습니다."
                         )
                 );
     }

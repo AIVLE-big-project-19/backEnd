@@ -64,6 +64,20 @@ class VisionAnalysisClientTest {
     }
 
     @Test
+    void 한글_파일명은_RFC2231로_인코딩되어_비ASCII_바이트가_헤더에_그대로_실리지_않는다() {
+        mockServer.expect(requestTo("http://ai-server.test/vision/csv?limit=3"))
+                .andExpect(method(POST))
+                .andExpect(content().string(containsString("filename*=UTF-8''%EB%8C%80%ED%95%9C%EA%B8%80.csv")))
+                .andRespond(withSuccess("id\n1\n".getBytes(), MediaType.parseMediaType("text/csv")));
+
+        MockMultipartFile file = new MockMultipartFile("file", "대한글.csv", "text/csv", "dummy".getBytes());
+
+        visionAnalysisClient.fetchCsv(file, 3);
+
+        mockServer.verify();
+    }
+
+    @Test
     void 분석이_400이면_detail_메시지를_담은_예외를_던진다() {
         mockServer.expect(requestTo("http://ai-server.test/vision/csv?limit=3"))
                 .andRespond(withBadRequest()

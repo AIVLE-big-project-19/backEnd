@@ -25,7 +25,7 @@ public class RestClientConfig {
         // 먼저 시도한다. AI 서버(uvicorn/h11)는 이 업그레이드 요청을 거부하므로 반드시 HTTP/1.1을 강제해야 한다.
         HttpClient httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofMillis(timeoutMs))
+                .connectTimeout(Duration.ofSeconds(5))
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofMillis(timeoutMs));

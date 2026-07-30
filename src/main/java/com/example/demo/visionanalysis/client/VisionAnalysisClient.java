@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 @Component
@@ -34,7 +36,13 @@ public class VisionAnalysisClient {
             @Value("${ai.server.vision-csv-path}") String visionCsvPath,
             ObjectMapper objectMapper
     ) {
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.restClient = restClientBuilder
+                .baseUrl(baseUrl)
+                .messageConverters(converters -> converters.stream()
+                        .filter(FormHttpMessageConverter.class::isInstance)
+                        .map(FormHttpMessageConverter.class::cast)
+                        .forEach(converter -> converter.setMultipartCharset(StandardCharsets.UTF_8)))
+                .build();
         this.visionCsvPath = visionCsvPath;
         this.objectMapper = objectMapper;
     }

@@ -36,6 +36,7 @@ public enum ErrorCode {
     TERMS_NOT_FOUND(HttpStatus.NOT_FOUND, "약관을 찾을 수 없습니다."),
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "로그인 시도 횟수를 초과하여 계정이 일시적으로 잠겼습니다."),
     VISION_ANALYSIS_FAILED(HttpStatus.BAD_GATEWAY, "비전 분석 서버 호출에 실패했습니다."),
+    VISION_ANALYSIS_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "현재 처리 중인 분석 요청이 많습니다. 잠시 후 다시 시도해주세요."),
 
     IDLE_LAND_CSV_PARSE_FAILED(HttpStatus.BAD_REQUEST, "유휴부지 CSV 파일을 처리할 수 없습니다. 형식을 확인해주세요."),
     IDLE_LAND_NOT_FOUND(HttpStatus.NOT_FOUND, "유휴부지 후보지를 찾을 수 없습니다."),
