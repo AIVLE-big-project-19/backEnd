@@ -3,17 +3,26 @@ server:
   servlet:
     context-path: /api
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 spring:
   application:
     name: demo
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/solaraivle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: aivle
+    url: ${DB_URL:jdbc:mysql://localhost:3306/solaraivle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:aivle}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:update}
     defer-datasource-initialization: true   # Hibernate 테이블 생성 완료 후 data.sql 실행
     show-sql: true
     properties:
@@ -22,8 +31,8 @@ spring:
         format_sql: true
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   mail:
     host: smtp.gmail.com
     port: 587
@@ -60,7 +69,7 @@ ai:
     analyze-path: ${AI_SERVER_ANALYZE_PATH:/analyze}
 vision:
   ai:
-    url: http://localhost:8001/api/v1/vision/shade-analysis
+    url: ${VISION_AI_URL:http://localhost:8001/api/v1/vision/shade-analysis}
 fastapi:
   url: http://localhost:8000
 ml:

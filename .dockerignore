@@ -1,0 +1,11 @@
+build/
+.gradle/
+.git/
+.idea/
+.venv/
+.worktrees/
+docs/
+.env
+*.md
+.claude/
+.superpowers/
