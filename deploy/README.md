@@ -49,3 +49,19 @@ DB(RDS), Redis(ElastiCache), HTTPS(CloudFront) 모두 정상 확인됨.
 ```
 https://d1iuhepb03p42r.cloudfront.net/api
 ```
+
+## CI/CD (GitHub Actions)
+
+`.github/workflows/deploy.yml` — `main` 브랜치에 push(또는 수동 실행)되면 자동으로:
+1. Docker 이미지 빌드 (`git sha`로 태깅)
+2. ECR push
+3. 현재 ECS 태스크 정의를 내려받아 이미지만 새 걸로 교체한 새 리비전 등록
+4. `solaraivle-backend-svc` 서비스를 새 리비전으로 업데이트, 안정화될 때까지 대기
+
+**인증 방식**: 장기 액세스 키를 GitHub Secrets에 저장하지 않고, **OIDC(OpenID Connect)**로 GitHub Actions가 임시 자격증명을 발급받도록 구성함.
+
+- IAM OIDC 프로바이더: `token.actions.githubusercontent.com`
+- IAM 역할: `solaraivle-github-actions-deploy` — `repo:AIVLE-big-project-19/backEnd:*`에서 오는 요청만 신뢰(trust policy에 `sub` 조건으로 이 저장소로 제한), 권한은 ECR push + ECS 태스크정의 등록/서비스 업데이트 + 관련 IAM 역할 2개에 대한 `PassRole`만 부여(최소권한)
+- **GitHub Secrets에 아무것도 등록할 필요 없음** — 워크플로우가 실행될 때마다 AWS STS에서 15분짜리 임시 토큰을 발급받는 방식이라 유출 위험이 있는 정적 키가 아예 없음
+
+**주의**: 워크플로우 트리거가 `main` push라서, `main`에 머지되는 순간 실제 운영 중인 ECS 서비스가 바로 업데이트됨. 인프라를 지운 상태에서 `main`에 push하면 `ecs describe-task-definition`/`ecs update-service` 호출이 실패하며 워크플로우가 실패함(인프라가 있을 때만 정상 동작).
