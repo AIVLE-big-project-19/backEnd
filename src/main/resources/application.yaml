@@ -15,6 +15,10 @@ management:
 spring:
   application:
     name: demo
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 55MB
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DB_URL:jdbc:mysql://localhost:3306/solaraivle?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
@@ -61,6 +65,10 @@ terms:
 app:
   demo-data:
     enabled: ${DEMO_DATA_ENABLED:true}
+  board-storage:
+    bucket: ${AWS_S3_BUCKET:}
+    region: ${AWS_REGION:ap-northeast-2}
+    prefix: ${AWS_S3_BOARD_PREFIX:board-attachments}
 
 ai:
   server:

@@ -18,6 +18,8 @@ public enum ErrorCode {
     NOTICE_ADMIN_ONLY(HttpStatus.FORBIDDEN, "공지사항은 관리자만 작성하거나 수정할 수 있습니다."),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
+    ATTACHMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "첨부파일을 찾을 수 없습니다."),
+    ATTACHMENT_STORAGE_FAILED(HttpStatus.BAD_GATEWAY, "첨부파일 저장소 처리에 실패했습니다."),
 
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),

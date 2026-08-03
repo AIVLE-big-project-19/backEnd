@@ -4,6 +4,7 @@ import com.example.demo.board.dto.BoardRequest;
 import com.example.demo.board.entity.Board;
 import com.example.demo.board.repository.BoardRepository;
 import com.example.demo.board.repository.BoardAttachmentRepository;
+import com.example.demo.board.storage.BoardFileStorage;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.entity.User;
@@ -12,7 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mock.web.MockMultipartFile;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,12 +30,13 @@ class BoardServiceImplTest {
     @Mock BoardRepository boardRepository;
     @Mock UserRepository userRepository;
     @Mock BoardAttachmentRepository boardAttachmentRepository;
+    @Mock BoardFileStorage boardFileStorage;
     private BoardServiceImpl boardService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository);
+        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository, boardFileStorage);
     }
 
     @Test
@@ -101,6 +105,27 @@ class BoardServiceImplTest {
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getErrorCode())
                 .isEqualTo(ErrorCode.INQUIRY_ADMIN_CANNOT_UPDATE);
+    }
+
+    @Test
+    void 첨부파일을_외부_스토리지에_저장한다() {
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "guide.txt",
+                "text/plain",
+                "attachment".getBytes()
+        );
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "member")));
+        when(boardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardAttachmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardFileStorage.upload(file, "text/plain"))
+                .thenReturn("board-attachments/2026/08/object.txt");
+
+        var response = boardService.createBoard(request("자유게시판"), List.of(file), 1L, false);
+
+        verify(boardFileStorage).upload(file, "text/plain");
+        assertThat(response.getAttachments()).hasSize(1);
+        assertThat(response.getAttachments().get(0).getOriginalFilename()).isEqualTo("guide.txt");
     }
 
     private User user(Long id, String loginId) {

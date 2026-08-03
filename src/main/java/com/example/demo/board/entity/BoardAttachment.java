@@ -22,7 +22,7 @@ public class BoardAttachment {
     @Column(nullable = false, length = 255)
     private String originalFilename;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, unique = true, length = 512)
     private String storedFilename;
 
     @Column(nullable = false, length = 100)

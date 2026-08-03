@@ -7,6 +7,7 @@ import com.example.demo.board.entity.BoardAttachment;
 import com.example.demo.board.entity.Board;
 import com.example.demo.board.repository.BoardAttachmentRepository;
 import com.example.demo.board.repository.BoardRepository;
+import com.example.demo.board.storage.BoardFileStorage;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.response.PageResponse;
@@ -14,19 +15,14 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -43,9 +39,7 @@ public class BoardServiceImpl implements BoardService {
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
     private final BoardAttachmentRepository boardAttachmentRepository;
-
-    @Value("${app.board-upload-dir:uploads/boards}")
-    private String uploadDirectory;
+    private final BoardFileStorage boardFileStorage;
 
     @Override
     public BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin) {
@@ -195,12 +189,11 @@ public class BoardServiceImpl implements BoardService {
         BoardAttachment attachment = boardAttachmentRepository.findById(attachmentId)
                 .filter(item -> item.getBoard().getBoardId().equals(boardId))
                 .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
-        try {
-            return new BoardFile(attachment.getOriginalFilename(), attachment.getContentType(),
-                    Files.readAllBytes(uploadPath().resolve(attachment.getStoredFilename())));
-        } catch (IOException exception) {
-            throw new CustomException(ErrorCode.BOARD_NOT_FOUND);
-        }
+        return new BoardFile(
+                attachment.getOriginalFilename(),
+                attachment.getContentType(),
+                boardFileStorage.download(attachment.getStoredFilename())
+        );
     }
 
     private void validateAdminCategory(String category, boolean isAdmin) {
@@ -310,25 +303,26 @@ public class BoardServiceImpl implements BoardService {
 
     private void storeAttachments(Board board, List<MultipartFile> files) {
         if (files == null) return;
-        for (MultipartFile file : files) {
-            if (file == null || file.isEmpty()) continue;
-            String contentType = file.getContentType();
-            if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
-            String originalFilename = file.getOriginalFilename();
-            if (originalFilename == null || originalFilename.isBlank() || file.getSize() > MAX_FILE_SIZE) {
-                throw new CustomException(ErrorCode.INVALID_INPUT);
+        List<String> uploadedKeys = new ArrayList<>();
+        try {
+            for (MultipartFile file : files) {
+                if (file == null || file.isEmpty()) continue;
+                String contentType = file.getContentType();
+                if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
+                String originalFilename = file.getOriginalFilename();
+                if (originalFilename == null || originalFilename.isBlank() || file.getSize() > MAX_FILE_SIZE) {
+                    throw new CustomException(ErrorCode.INVALID_INPUT);
+                }
+                String objectKey = boardFileStorage.upload(file, contentType);
+                uploadedKeys.add(objectKey);
+                BoardAttachment attachment = boardAttachmentRepository.save(BoardAttachment.builder()
+                        .board(board).originalFilename(originalFilename).storedFilename(objectKey)
+                        .contentType(contentType).fileSize(file.getSize()).build());
+                board.getAttachments().add(attachment);
             }
-            String storedFilename = UUID.randomUUID() + extensionOf(originalFilename);
-            try {
-                Files.createDirectories(uploadPath());
-                Files.copy(file.getInputStream(), uploadPath().resolve(storedFilename), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException exception) {
-                throw new CustomException(ErrorCode.INVALID_INPUT);
-            }
-            BoardAttachment attachment = boardAttachmentRepository.save(BoardAttachment.builder()
-                    .board(board).originalFilename(originalFilename).storedFilename(storedFilename)
-                    .contentType(contentType).fileSize(file.getSize()).build());
-            board.getAttachments().add(attachment);
+        } catch (RuntimeException exception) {
+            uploadedKeys.forEach(this::deleteStoredFileQuietly);
+            throw exception;
         }
     }
 
@@ -366,15 +360,16 @@ public class BoardServiceImpl implements BoardService {
         }
     }
 
-    private Path uploadPath() { return Path.of(uploadDirectory).toAbsolutePath().normalize(); }
-
-    private String extensionOf(String filename) {
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 ? filename.substring(dot) : "";
+    private void deleteStoredFile(String storedFilename) {
+        boardFileStorage.delete(storedFilename);
     }
 
-    private void deleteStoredFile(String storedFilename) {
-        try { Files.deleteIfExists(uploadPath().resolve(storedFilename)); } catch (IOException ignored) { }
+    private void deleteStoredFileQuietly(String storedFilename) {
+        try {
+            boardFileStorage.delete(storedFilename);
+        } catch (RuntimeException ignored) {
+            // 원래 업로드/DB 오류가 사용자에게 전달되도록 정리 실패는 무시한다.
+        }
     }
 
 }
