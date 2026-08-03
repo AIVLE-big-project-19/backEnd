@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class DemoApplication {
 
 	public static void main(String[] args) {
-		Dotenv dotenv = Dotenv.load();
+		Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 		setIfPresent(dotenv, "VWORLD_API_KEY");
 		setIfPresent(dotenv, "MAIL_USERNAME");
 		setIfPresent(dotenv, "MAIL_PASSWORD");
