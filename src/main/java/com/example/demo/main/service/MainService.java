@@ -1,5 +1,7 @@
 package com.example.demo.main.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -11,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 public class MainService {
     @Value("${VWORLD_API_KEY}")
     private String vWorldApiKey;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public String searchVWorldPlace(String keyword) {
         RestTemplate restTemplate = new RestTemplate();
@@ -34,13 +38,22 @@ public class MainService {
 
 
 
+
     public String getVWorldAddress(String point) {
+        String roadResult = callVWorldAddress(point, "road");
+        if (isOk(roadResult)) {
+            return roadResult;
+        }
+        return callVWorldAddress(point, "parcel");
+    }
+
+    private String callVWorldAddress(String point, String type) {
         RestTemplate restTemplate = new RestTemplate();
 
         try {
             String urlStr = "https://api.vworld.kr/req/address?service=address&request=getAddress"
                     + "&point=" + point
-                    + "&type=road"
+                    + "&type=" + type
                     + "&format=json&errorformat=json"
                     + "&key=" + vWorldApiKey;
 
@@ -48,6 +61,15 @@ public class MainService {
             return restTemplate.getForObject(uri, String.class);
         } catch (Exception e) {
             return "{\"response\":{\"status\":\"ERROR\",\"message\":\"" + e.getMessage() + "\"}}";
+        }
+    }
+
+    private boolean isOk(String responseJson) {
+        try {
+            JsonNode root = objectMapper.readTree(responseJson);
+            return "OK".equals(root.path("response").path("status").asText());
+        } catch (Exception e) {
+            return false;
         }
     }
 
