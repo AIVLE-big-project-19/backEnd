@@ -71,7 +71,7 @@
 - 컨테이너 포트 8010, `CMD uvicorn app.main:app --host 0.0.0.0 --port 8010`
 - **신규 Secrets Manager 시크릿**: `solaraivle/chatbot-database-url` — 값은 `mysql+pymysql://admin:<RDS 비밀번호>@solaraivle-db.c7ek60soyfx9.ap-northeast-2.rds.amazonaws.com:3306/solaraivle` (RDS 관리형 시크릿에서 비밀번호를 읽어와 조합, 화면/커밋에 평문 노출 안 함)
 - 환경변수(시크릿): `DATABASE_URL`(신규), `JWT_SECRET`(기존 `solaraivle/jwt-secret` 재사용), `OPENAI_API_KEY`(기존 `solaraivle/openai-api-key` 재사용)
-- 환경변수(평문): `CORS_ORIGINS=https://main.d2bi30avd3chif.amplifyapp.com,https://infra-amplify-deploy.d2bi30avd3chif.amplifyapp.com`, `PORT=8010`
+- 환경변수(평문): `CORS_ORIGINS=http://localhost:5173,https://main.d2bi30avd3chif.amplifyapp.com,https://infra-amplify-deploy.d2bi30avd3chif.amplifyapp.com`(백엔드 `CorsConfig`의 허용 origin 목록과 동일하게 맞춤), `PORT=8010`
 - **`solaraivleEcsTaskExecutionRole`의 인라인 정책에 신규 `DATABASE_URL` 시크릿 ARN 추가** (기존 시크릿들은 이미 권한 있음)
 - ECS 태스크 정의: `solaraivle-chatbot`, 0.5vCPU/1GB
 - ECS 서비스: desired count 1, **`solaraivle-alb`의 기존 리스너(HTTP:80)에 타깃그룹 추가**
@@ -89,7 +89,7 @@
 ## 명시적 경계 사항
 
 - **`ai-agent` 저장소는 이번 배포 대상이 아니고, 그걸 의존하는 백엔드 보고서 기능(`AiAnalysisClient`)도 손대지 않는다.** 팀이 `ai-agent`를 삭제하기로 하면 그때 별도로 정리한다.
-- Vision AI/Ranking ML은 헬스체크 엔드포인트가 있지만(Ranking ML만; Vision AI는 없음) ALB에 연결되지 않으므로 컨테이너 헬스체크는 구성하지 않는다 — ECS가 태스크 생존 여부만으로 관리한다.
+- Ranking ML은 `/health` 엔드포인트가 있고 Vision AI는 없다. 둘 다 ALB에 연결되지 않으므로(내부 전용) 이 차이는 무관하며, 컨테이너 헬스체크도 별도로 구성하지 않는다 — ECS가 태스크 생존 여부만으로 관리한다.
 - 세 서비스 모두 오토스케일링 없음, desired count 1로 시작.
 - `chat_bot`의 라우트는 `chat_bot/app/routers/chat.py` 기준으로 `POST /chat`, `POST /chat/pdf` 두 개뿐이며(`prefix="/chat"`), 헬스체크는 라우터 밖 앱 최상위의 `GET /health`다(즉 `/chat/health`가 아니라 `/health`).
 
