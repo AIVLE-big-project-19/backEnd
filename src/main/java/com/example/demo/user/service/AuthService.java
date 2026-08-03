@@ -153,4 +153,18 @@ public class AuthService {
                 .refreshToken(refreshToken)
                 .build();
     }
+
+    public TokenResponse adminTestLogin() {
+
+        User user = userRepository.findByLoginId("admin")
+                .orElseThrow(() -> new IllegalArgumentException("Admin 계정이 존재하지 않습니다. 먼저 생성해주세요."));
+
+        String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getRole());
+        String refreshToken = jwtProvider.generateRefreshToken(user.getId());
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
 }

@@ -9,6 +9,7 @@ import com.example.demo.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -123,5 +124,12 @@ public class AuthApiController {
         userService.resetPassword(request.getLoginId(), request.getNewPassword());
 
         return ApiResponse.success(SuccessCode.PASSWORD_RESET);
+    }
+
+
+    @PostMapping("/test-login/admin")
+    public ResponseEntity<TokenResponse> adminTestLogin() {
+        TokenResponse response = authService.adminTestLogin();
+        return ResponseEntity.ok(response);
     }
 }
