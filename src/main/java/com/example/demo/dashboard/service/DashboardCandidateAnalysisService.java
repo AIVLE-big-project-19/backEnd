@@ -1,5 +1,6 @@
 package com.example.demo.dashboard.service;
 
+import com.example.demo.dashboard.client.PvgisClient;
 import com.example.demo.dashboard.dto.DashboardCandidateAnalysisResponse;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -34,11 +36,17 @@ public class DashboardCandidateAnalysisService {
     private static final long GENERATION_PER_KW = 1_300L;
     private static final long INSTALLATION_COST_PER_KW = 1_300_000L;
     private static final long REVENUE_PER_KWH = 160L;
+    private static final double DEFAULT_TILT_DEGREES = 30d;
+    private static final double[] MONTHLY_FALLBACK_WEIGHTS = {
+            0.62d, 0.70d, 0.88d, 1.02d, 1.14d, 1.20d,
+            1.18d, 1.08d, 0.94d, 0.82d, 0.68d, 0.60d
+    };
 
     private final IdleLandRepository idleLandRepository;
     private final MlScoringClient mlScoringClient;
     private final VWorldImageClient vWorldImageClient;
     private final VisionAiClient visionAiClient;
+    private final PvgisClient pvgisClient;
 
     public DashboardCandidateAnalysisResponse analyze(Long idleLandId) {
         IdleLand idleLand = idleLandRepository.findById(idleLandId)
@@ -64,16 +72,33 @@ public class DashboardCandidateAnalysisService {
         VisionAiSimulation vision = analysis.getVisionAiSimulation();
         Simulation simulation = vision == null ? null : vision.getSimulation();
         Double availableArea = site == null ? null : site.getAvailableArea();
-        EconomicEstimate economics = resolveEconomics(simulation, availableArea);
         Map<String, Object> visionValues = vision == null || vision.getVisionAnalysis() == null
                 ? Map.of()
                 : vision.getVisionAnalysis();
+        String siteType = normalizeSiteType(analysis.getTargetType(), idleLand.getAssetTypeNorm());
+        DashboardCandidateAnalysisResponse.RoofAnalysis roofAnalysis =
+                toRoofAnalysis(visionValues, analysis.getTargetType(), site);
+        Integer capacityKw = resolveCapacity(simulation, availableArea);
+        Optional<PvgisClient.Forecast> pvgisForecast = fetchGenerationForecast(
+                idleLand,
+                siteType,
+                roofAnalysis,
+                capacityKw
+        );
+        EconomicEstimate economics = resolveEconomics(
+                simulation,
+                capacityKw,
+                pvgisForecast.map(PvgisClient.Forecast::annualGenerationKwh).orElse(null)
+        );
+        DashboardCandidateAnalysisResponse.GenerationForecast generationForecast = pvgisForecast
+                .map(this::toGenerationForecast)
+                .orElseGet(() -> fallbackGenerationForecast(economics, roofAnalysis));
 
         return new DashboardCandidateAnalysisResponse(
                 idleLand.getId(),
                 idleLand.getSourceId(),
                 site != null && site.getAddress() != null ? site.getAddress() : idleLand.getAddress(),
-                normalizeSiteType(analysis.getTargetType(), idleLand.getAssetTypeNorm()),
+                siteType,
                 idleLand.getLatitude(),
                 idleLand.getLongitude(),
                 site == null ? null : site.getTotalArea(),
@@ -87,12 +112,13 @@ public class DashboardCandidateAnalysisService {
                 economics.annualRevenueKrw(),
                 economics.roiPercent(),
                 economics.paybackYears(),
+                generationForecast,
                 new DashboardCandidateAnalysisResponse.ScoreBreakdown(
                         details == null ? null : details.getMlTechnicalScore(),
                         details == null ? null : details.getVisionAiScore(),
                         details == null ? null : details.getRuleBasedScore()
                 ),
-                toRoofAnalysis(visionValues, analysis.getTargetType(), site),
+                roofAnalysis,
                 toRisks(analysis),
                 toChecklist(analysis.getPreInvestigationChecklist())
         );
@@ -180,16 +206,33 @@ public class DashboardCandidateAnalysisService {
         return value instanceof Number number ? Math.round(number.doubleValue()) : fallback;
     }
 
-    private EconomicEstimate resolveEconomics(Simulation simulation, Double availableArea) {
+    private Integer resolveCapacity(Simulation simulation, Double availableArea) {
         Integer capacityKw = simulation == null ? null : simulation.getRecommendedCapacityKw();
-        Long annualGenerationKwh = simulation == null ? null : simulation.getAnnualGenerationKwh();
-        Long annualRevenueKrw = simulation == null ? null : simulation.getAnnualRevenueKrw();
-        Double roiPercent = simulation == null ? null : simulation.getRoiPercent();
-        Double paybackYears = simulation == null ? null : simulation.getPaybackYears();
-
         if (capacityKw == null && availableArea != null && availableArea > 0) {
             capacityKw = Math.max(3, (int) Math.round(availableArea / AREA_PER_KW_M2));
         }
+        return capacityKw;
+    }
+
+    private EconomicEstimate resolveEconomics(
+            Simulation simulation,
+            Integer capacityKw,
+            Long locationBasedAnnualGenerationKwh
+    ) {
+        boolean locationBased = locationBasedAnnualGenerationKwh != null;
+        Long annualGenerationKwh = locationBased
+                ? locationBasedAnnualGenerationKwh
+                : simulation == null ? null : simulation.getAnnualGenerationKwh();
+        Long annualRevenueKrw = locationBased
+                ? null
+                : simulation == null ? null : simulation.getAnnualRevenueKrw();
+        Double roiPercent = locationBased
+                ? null
+                : simulation == null ? null : simulation.getRoiPercent();
+        Double paybackYears = locationBased
+                ? null
+                : simulation == null ? null : simulation.getPaybackYears();
+
         if (annualGenerationKwh == null && capacityKw != null) {
             annualGenerationKwh = capacityKw * GENERATION_PER_KW;
         }
@@ -214,6 +257,96 @@ public class DashboardCandidateAnalysisService {
                 roiPercent,
                 paybackYears
         );
+    }
+
+    private Optional<PvgisClient.Forecast> fetchGenerationForecast(
+            IdleLand idleLand,
+            String siteType,
+            DashboardCandidateAnalysisResponse.RoofAnalysis roofAnalysis,
+            Integer capacityKw
+    ) {
+        if (idleLand.getLatitude() == null || idleLand.getLongitude() == null || capacityKw == null) {
+            return Optional.empty();
+        }
+        double tiltDegrees = roofAnalysis.installAngleDegrees() == null
+                ? DEFAULT_TILT_DEGREES
+                : roofAnalysis.installAngleDegrees();
+        return pvgisClient.forecast(new PvgisClient.Request(
+                idleLand.getLatitude(),
+                idleLand.getLongitude(),
+                capacityKw,
+                tiltDegrees,
+                toPvgisAzimuth(roofAnalysis.moduleDirection()),
+                "ROOF".equals(siteType) ? "building" : "free"
+        ));
+    }
+
+    private DashboardCandidateAnalysisResponse.GenerationForecast toGenerationForecast(PvgisClient.Forecast forecast) {
+        return new DashboardCandidateAnalysisResponse.GenerationForecast(
+                forecast.source(),
+                forecast.method(),
+                forecast.capacityKw(),
+                forecast.tiltDegrees(),
+                forecast.azimuthDegrees(),
+                forecast.systemLossPercent(),
+                forecast.fallback(),
+                forecast.monthly().stream()
+                        .map(item -> new DashboardCandidateAnalysisResponse.MonthlyGeneration(
+                                item.month(),
+                                item.generationKwh()
+                        ))
+                        .toList(),
+                forecast.annualGenerationKwh()
+        );
+    }
+
+    private DashboardCandidateAnalysisResponse.GenerationForecast fallbackGenerationForecast(
+            EconomicEstimate economics,
+            DashboardCandidateAnalysisResponse.RoofAnalysis roofAnalysis
+    ) {
+        if (economics.annualGenerationKwh() == null) {
+            return null;
+        }
+        double totalWeight = 0d;
+        for (double weight : MONTHLY_FALLBACK_WEIGHTS) {
+            totalWeight += weight;
+        }
+
+        long remaining = economics.annualGenerationKwh();
+        List<DashboardCandidateAnalysisResponse.MonthlyGeneration> monthly = new ArrayList<>();
+        for (int index = 0; index < MONTHLY_FALLBACK_WEIGHTS.length; index++) {
+            long generationKwh = index == MONTHLY_FALLBACK_WEIGHTS.length - 1
+                    ? remaining
+                    : Math.round(economics.annualGenerationKwh() * MONTHLY_FALLBACK_WEIGHTS[index] / totalWeight);
+            remaining -= generationKwh;
+            monthly.add(new DashboardCandidateAnalysisResponse.MonthlyGeneration(index + 1, generationKwh));
+        }
+
+        return new DashboardCandidateAnalysisResponse.GenerationForecast(
+                "내부 계절 가중치",
+                "SEASONAL_WEIGHT_FALLBACK",
+                economics.capacityKw(),
+                roofAnalysis.installAngleDegrees() == null ? DEFAULT_TILT_DEGREES : roofAnalysis.installAngleDegrees(),
+                toPvgisAzimuth(roofAnalysis.moduleDirection()),
+                null,
+                true,
+                monthly,
+                economics.annualGenerationKwh()
+        );
+    }
+
+    private double toPvgisAzimuth(String orientation) {
+        if (orientation == null || orientation.isBlank()) {
+            return 0d;
+        }
+        if (orientation.contains("남동")) return -45d;
+        if (orientation.contains("남서")) return 45d;
+        if (orientation.contains("북동")) return -135d;
+        if (orientation.contains("북서")) return 135d;
+        if (orientation.contains("동")) return -90d;
+        if (orientation.contains("서")) return 90d;
+        if (orientation.contains("북")) return 180d;
+        return 0d;
     }
 
     private double roundOneDecimal(double value) {

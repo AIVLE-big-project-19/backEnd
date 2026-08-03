@@ -20,11 +20,26 @@ public record DashboardCandidateAnalysisResponse(
         Long estimatedAnnualRevenue,
         Double roiPercent,
         Double paybackPeriodYears,
+        GenerationForecast generationForecast,
         ScoreBreakdown scores,
         RoofAnalysis roofAnalysis,
         List<RiskItem> risks,
         List<ChecklistAction> checklist
 ) {
+    public record GenerationForecast(
+            String source,
+            String method,
+            Integer capacityKw,
+            Double tiltDegrees,
+            Double azimuthDegrees,
+            Double systemLossPercent,
+            boolean fallback,
+            List<MonthlyGeneration> monthly,
+            Long annualGenerationKwh
+    ) {}
+
+    public record MonthlyGeneration(Integer month, Long generationKwh) {}
+
     public record ScoreBreakdown(Integer ml, Integer vision, Integer regulation) {}
 
     public record RoofAnalysis(
