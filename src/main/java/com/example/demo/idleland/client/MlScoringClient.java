@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 // IdleLand 후보지 목록을 CSV로 만들어 Ranking_ML(FastAPI) POST /rank/{dataset_type}로 넘기고,
 // 예측·랭킹·SHAP 결과를 받아온다.
@@ -83,6 +85,30 @@ public class MlScoringClient {
         } catch (RestClientException e) {
             log.error("ML 서버 호출 실패: {}", url, e);
             throw new CustomException(ErrorCode.ML_SERVER_REQUEST_FAILED);
+        }
+    }
+
+    // Vision AI가 뽑은 detection 목록을 ML의 통합 분석(/analyze/vision-json)에 그대로 전달한다.
+    // 응답 구조가 /rank 쪽 리포트 포맷과 키 이름이 달라(예: vision_area_score) 별도 DTO를
+    // 만드는 대신 중첩 Map/List로 받아 필요한 값만 뽑아 쓴다.
+    public Map<String, Object> analyzeVisionJson(List<Map<String, Object>> visionPredictions) {
+        String url = baseUrl + "/analyze/vision-json";
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    org.springframework.http.HttpMethod.POST,
+                    new HttpEntity<>(visionPredictions),
+                    new ParameterizedTypeReference<Map<String, Object>>() {
+                    }
+            );
+            Map<String, Object> result = response.getBody();
+            if (result == null) {
+                throw new CustomException(ErrorCode.ML_SERVER_REQUEST_FAILED, "ML 통합 분석 서버가 빈 응답을 반환했습니다.");
+            }
+            return result;
+        } catch (RestClientException e) {
+            log.error("ML 통합 분석(vision-json) 호출 실패: {}", url, e);
+            throw new CustomException(ErrorCode.ML_SERVER_REQUEST_FAILED, "ML 통합 분석 호출에 실패했습니다.");
         }
     }
 
