@@ -1,0 +1,72 @@
+package com.example.demo.idleland.client;
+
+import com.example.demo.global.exception.CustomException;
+import com.example.demo.global.exception.ErrorCode;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.Map;
+
+// Vision AI(FastAPI) POST /predict를 호출해 세그멘테이션 결과(predictions)와
+// 폴리곤이 그려진 위성이미지(annotated_image, base64 PNG)를 받아온다.
+@Component
+public class VisionAiClient {
+
+    @Value("${fastapi.url}")
+    private String visionAiBaseUrl;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Getter
+    @Setter
+    public static class VisionPredictResponse {
+        // ML(/analyze/vision-json)로 그대로 전달할 원본 detection 목록.
+        private List<Map<String, Object>> predictions;
+
+        @JsonProperty("annotated_image")
+        private String annotatedImage;
+    }
+
+    public VisionPredictResponse predict(byte[] imageBytes, String extent3857) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("image", new ByteArrayResource(imageBytes) {
+            @Override
+            public String getFilename() {
+                return "candidate.png";
+            }
+        });
+        body.add("extent3857", extent3857);
+
+        try {
+            ResponseEntity<VisionPredictResponse> response = restTemplate.postForEntity(
+                    visionAiBaseUrl + "/predict",
+                    new HttpEntity<>(body, headers),
+                    VisionPredictResponse.class
+            );
+            VisionPredictResponse result = response.getBody();
+            if (result == null) {
+                throw new CustomException(ErrorCode.VISION_ANALYSIS_FAILED, "Vision AI가 빈 응답을 반환했습니다.");
+            }
+            return result;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.VISION_ANALYSIS_FAILED, "Vision AI 호출 실패: " + e.getMessage());
+        }
+    }
+}
