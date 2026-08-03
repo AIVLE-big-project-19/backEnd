@@ -1,6 +1,8 @@
 package com.example.demo.dashboard.service;
 
 import com.example.demo.idleland.client.MlScoringClient;
+import com.example.demo.idleland.client.VWorldImageClient;
+import com.example.demo.idleland.client.VisionAiClient;
 import com.example.demo.idleland.dto.MlRankResponse;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
@@ -33,6 +35,12 @@ class DashboardCandidateAnalysisServiceTest {
     @Mock
     private MlScoringClient mlScoringClient;
 
+    @Mock
+    private VWorldImageClient vWorldImageClient;
+
+    @Mock
+    private VisionAiClient visionAiClient;
+
     @InjectMocks
     private DashboardCandidateAnalysisService service;
 
@@ -62,6 +70,55 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.scores().ml()).isEqualTo(93);
         assertThat(result.roofAnalysis().slopeDegrees()).isEqualTo(12d);
         verify(mlScoringClient).rank("building", List.of(idleLand), 1, true);
+    }
+
+    @Test
+    void Vision_AI_realArea로_경제성_누락값을_계산한다() {
+        IdleLand idleLand = IdleLand.builder()
+                .id(8L)
+                .sourceId("SITE-8")
+                .address("충청남도 천안시")
+                .assetTypeNorm("LAND")
+                .latitude(36.9)
+                .longitude(127.1)
+                .build();
+        AiAnalysisResponse analysis = analysis();
+        analysis.getSiteInfo().setAvailableArea(null);
+        analysis.getSiteInfo().setAvailabilityRatePercent(null);
+        analysis.getVisionAiSimulation().setSimulation(null);
+        MlRankResponse rankResponse = new MlRankResponse();
+        rankResponse.setTopCandidates(List.of(analysis));
+
+        List<Map<String, Object>> predictions = List.of(Map.of("real_area", 186.69d));
+        byte[] imageBytes = {1};
+        VisionAiClient.VisionPredictResponse visionResponse = new VisionAiClient.VisionPredictResponse();
+        visionResponse.setPredictions(predictions);
+
+        when(idleLandRepository.findById(8L)).thenReturn(Optional.of(idleLand));
+        when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
+        when(vWorldImageClient.fetchImage(127.1d, 36.9d))
+                .thenReturn(new VWorldImageClient.VisionImageSource(imageBytes, "extent"));
+        when(visionAiClient.predict(imageBytes, "extent")).thenReturn(visionResponse);
+        when(mlScoringClient.analyzeVisionJson(predictions)).thenReturn(Map.of(
+                "results", List.of(Map.of(
+                        "1_site_info", Map.of(
+                                "total_area_m2", 1_500d,
+                                "available_area_m2", 186.69d,
+                                "availability_rate_percent", 12.45d
+                        ),
+                        "3_vision_ai_and_simulation", Map.of("vision_analysis", Map.of())
+                ))
+        ));
+
+        var result = service.analyze(8L);
+
+        assertThat(result.usableRoofAreaM2()).isEqualTo(186.69d);
+        assertThat(result.roofUtilizationRate()).isEqualTo(12.45d);
+        assertThat(result.capacityKw()).isEqualTo(19);
+        assertThat(result.annualGenerationKwh()).isEqualTo(24_700L);
+        assertThat(result.estimatedAnnualRevenue()).isEqualTo(3_952_000L);
+        assertThat(result.roiPercent()).isEqualTo(16d);
+        assertThat(result.paybackPeriodYears()).isEqualTo(6.3d);
     }
 
     private AiAnalysisResponse analysis() {

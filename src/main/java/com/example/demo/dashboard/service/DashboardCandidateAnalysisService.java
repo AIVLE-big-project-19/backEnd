@@ -4,6 +4,8 @@ import com.example.demo.dashboard.dto.DashboardCandidateAnalysisResponse;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.idleland.client.MlScoringClient;
+import com.example.demo.idleland.client.VWorldImageClient;
+import com.example.demo.idleland.client.VisionAiClient;
 import com.example.demo.idleland.dto.MlRankResponse;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
@@ -16,18 +18,27 @@ import com.example.demo.report.dto.Simulation;
 import com.example.demo.report.dto.SiteInfo;
 import com.example.demo.report.dto.VisionAiSimulation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardCandidateAnalysisService {
 
+    private static final double AREA_PER_KW_M2 = 10d;
+    private static final long GENERATION_PER_KW = 1_300L;
+    private static final long INSTALLATION_COST_PER_KW = 1_300_000L;
+    private static final long REVENUE_PER_KWH = 160L;
+
     private final IdleLandRepository idleLandRepository;
     private final MlScoringClient mlScoringClient;
+    private final VWorldImageClient vWorldImageClient;
+    private final VisionAiClient visionAiClient;
 
     public DashboardCandidateAnalysisResponse analyze(Long idleLandId) {
         IdleLand idleLand = idleLandRepository.findById(idleLandId)
@@ -42,6 +53,7 @@ public class DashboardCandidateAnalysisService {
             throw new CustomException(ErrorCode.ML_SERVER_REQUEST_FAILED, "ML 서버가 상세 분석 결과를 반환하지 않았습니다.");
         }
 
+        enrichWithVisionAnalysis(idleLand, analysis);
         return toResponse(idleLand, analysis);
     }
 
@@ -51,6 +63,8 @@ public class DashboardCandidateAnalysisService {
         DetailScores details = evaluation == null ? null : evaluation.getDetailScores();
         VisionAiSimulation vision = analysis.getVisionAiSimulation();
         Simulation simulation = vision == null ? null : vision.getSimulation();
+        Double availableArea = site == null ? null : site.getAvailableArea();
+        EconomicEstimate economics = resolveEconomics(simulation, availableArea);
         Map<String, Object> visionValues = vision == null || vision.getVisionAnalysis() == null
                 ? Map.of()
                 : vision.getVisionAnalysis();
@@ -63,16 +77,16 @@ public class DashboardCandidateAnalysisService {
                 idleLand.getLatitude(),
                 idleLand.getLongitude(),
                 site == null ? null : site.getTotalArea(),
-                site == null ? null : site.getAvailableArea(),
-                site == null ? null : site.getAvailabilityRatePercent(),
+                availableArea,
+                availabilityRate(site, availableArea),
                 evaluation == null ? null : evaluation.getTotalScore(),
                 evaluation == null ? null : evaluation.getGrade(),
                 evaluation == null ? null : evaluation.getPriorityRank(),
-                simulation == null ? null : simulation.getRecommendedCapacityKw(),
-                simulation == null ? null : simulation.getAnnualGenerationKwh(),
-                simulation == null ? null : simulation.getAnnualRevenueKrw(),
-                simulation == null ? null : simulation.getRoiPercent(),
-                simulation == null ? null : simulation.getPaybackYears(),
+                economics.capacityKw(),
+                economics.annualGenerationKwh(),
+                economics.annualRevenueKrw(),
+                economics.roiPercent(),
+                economics.paybackYears(),
                 new DashboardCandidateAnalysisResponse.ScoreBreakdown(
                         details == null ? null : details.getMlTechnicalScore(),
                         details == null ? null : details.getVisionAiScore(),
@@ -82,6 +96,146 @@ public class DashboardCandidateAnalysisService {
                 toRisks(analysis),
                 toChecklist(analysis.getPreInvestigationChecklist())
         );
+    }
+
+    private void enrichWithVisionAnalysis(IdleLand idleLand, AiAnalysisResponse target) {
+        if (idleLand.getLongitude() == null || idleLand.getLatitude() == null) {
+            return;
+        }
+
+        try {
+            VWorldImageClient.VisionImageSource imageSource =
+                    vWorldImageClient.fetchImage(idleLand.getLongitude(), idleLand.getLatitude());
+            VisionAiClient.VisionPredictResponse visionResult =
+                    visionAiClient.predict(imageSource.imageBytes(), imageSource.extent3857());
+            if (visionResult.getPredictions() == null || visionResult.getPredictions().isEmpty()) {
+                return;
+            }
+
+            Map<String, Object> integrated = mlScoringClient.analyzeVisionJson(visionResult.getPredictions());
+            Object resultsValue = integrated.get("results");
+            if (resultsValue instanceof List<?> results && !results.isEmpty()
+                    && results.get(0) instanceof Map<?, ?> result) {
+                mergeVisionResult(target, result);
+            }
+        } catch (Exception exception) {
+            log.warn("후보지 id={} Vision 분석 보강 실패: {}", idleLand.getId(), exception.getMessage());
+        }
+    }
+
+    private void mergeVisionResult(AiAnalysisResponse target, Map<?, ?> result) {
+        SiteInfo site = target.getSiteInfo();
+        if (site != null && result.get("1_site_info") instanceof Map<?, ?> siteValues) {
+            site.setTotalArea(number(siteValues.get("total_area_m2"), site.getTotalArea()));
+            site.setAvailableArea(number(siteValues.get("available_area_m2"), site.getAvailableArea()));
+            site.setAvailabilityRatePercent(number(
+                    siteValues.get("availability_rate_percent"),
+                    site.getAvailabilityRatePercent()
+            ));
+        }
+
+        if (!(result.get("3_vision_ai_and_simulation") instanceof Map<?, ?> visionValues)) {
+            return;
+        }
+        VisionAiSimulation vision = target.getVisionAiSimulation();
+        if (vision == null) {
+            vision = new VisionAiSimulation();
+            target.setVisionAiSimulation(vision);
+        }
+        if (visionValues.get("vision_analysis") instanceof Map<?, ?> rawAnalysis) {
+            Map<String, Object> analysisValues = new java.util.LinkedHashMap<>();
+            rawAnalysis.forEach((key, value) -> analysisValues.put(String.valueOf(key), value));
+            vision.setVisionAnalysis(analysisValues);
+        }
+        if (visionValues.get("simulation") instanceof Map<?, ?> simulationValues) {
+            Simulation simulation = vision.getSimulation();
+            if (simulation == null) {
+                simulation = new Simulation();
+                vision.setSimulation(simulation);
+            }
+            simulation.setRecommendedCapacityKw(integer(
+                    simulationValues.get("recommended_capacity_kw"),
+                    simulation.getRecommendedCapacityKw()
+            ));
+            simulation.setAnnualGenerationKwh(longNumber(
+                    simulationValues.get("annual_generation_kwh"),
+                    simulation.getAnnualGenerationKwh()
+            ));
+            simulation.setAnnualRevenueKrw(longNumber(
+                    simulationValues.get("annual_revenue_krw"),
+                    simulation.getAnnualRevenueKrw()
+            ));
+        }
+    }
+
+    private Double number(Object value, Double fallback) {
+        return value instanceof Number number ? number.doubleValue() : fallback;
+    }
+
+    private Integer integer(Object value, Integer fallback) {
+        return value instanceof Number number ? (int) Math.round(number.doubleValue()) : fallback;
+    }
+
+    private Long longNumber(Object value, Long fallback) {
+        return value instanceof Number number ? Math.round(number.doubleValue()) : fallback;
+    }
+
+    private EconomicEstimate resolveEconomics(Simulation simulation, Double availableArea) {
+        Integer capacityKw = simulation == null ? null : simulation.getRecommendedCapacityKw();
+        Long annualGenerationKwh = simulation == null ? null : simulation.getAnnualGenerationKwh();
+        Long annualRevenueKrw = simulation == null ? null : simulation.getAnnualRevenueKrw();
+        Double roiPercent = simulation == null ? null : simulation.getRoiPercent();
+        Double paybackYears = simulation == null ? null : simulation.getPaybackYears();
+
+        if (capacityKw == null && availableArea != null && availableArea > 0) {
+            capacityKw = Math.max(3, (int) Math.round(availableArea / AREA_PER_KW_M2));
+        }
+        if (annualGenerationKwh == null && capacityKw != null) {
+            annualGenerationKwh = capacityKw * GENERATION_PER_KW;
+        }
+        if (annualRevenueKrw == null && annualGenerationKwh != null) {
+            annualRevenueKrw = annualGenerationKwh * REVENUE_PER_KWH;
+        }
+
+        if (capacityKw != null && annualRevenueKrw != null && annualRevenueKrw > 0) {
+            long installationCost = capacityKw * INSTALLATION_COST_PER_KW;
+            if (roiPercent == null) {
+                roiPercent = roundOneDecimal(annualRevenueKrw / (double) installationCost * 100d);
+            }
+            if (paybackYears == null) {
+                paybackYears = roundOneDecimal(installationCost / (double) annualRevenueKrw);
+            }
+        }
+
+        return new EconomicEstimate(
+                capacityKw,
+                annualGenerationKwh,
+                annualRevenueKrw,
+                roiPercent,
+                paybackYears
+        );
+    }
+
+    private double roundOneDecimal(double value) {
+        return Math.round(value * 10d) / 10d;
+    }
+
+    private record EconomicEstimate(
+            Integer capacityKw,
+            Long annualGenerationKwh,
+            Long annualRevenueKrw,
+            Double roiPercent,
+            Double paybackYears
+    ) {}
+
+    private Double availabilityRate(SiteInfo site, Double availableArea) {
+        if (site != null && site.getAvailabilityRatePercent() != null) {
+            return site.getAvailabilityRatePercent();
+        }
+        if (site == null || site.getTotalArea() == null || site.getTotalArea() <= 0 || availableArea == null) {
+            return null;
+        }
+        return Math.round(availableArea / site.getTotalArea() * 10_000d) / 100d;
     }
 
     private DashboardCandidateAnalysisResponse.RoofAnalysis toRoofAnalysis(
