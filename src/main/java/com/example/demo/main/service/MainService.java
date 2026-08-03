@@ -32,6 +32,25 @@ public class MainService {
         }
     }
 
+
+
+    public String getVWorldAddress(String point) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        try {
+            String urlStr = "https://api.vworld.kr/req/address?service=address&request=getAddress"
+                    + "&point=" + point
+                    + "&type=road"
+                    + "&format=json&errorformat=json"
+                    + "&key=" + vWorldApiKey;
+
+            URI uri = URI.create(urlStr);
+            return restTemplate.getForObject(uri, String.class);
+        } catch (Exception e) {
+            return "{\"response\":{\"status\":\"ERROR\",\"message\":\"" + e.getMessage() + "\"}}";
+        }
+    }
+
     public String getVWorldApiKey() {
         return this.vWorldApiKey;
     }

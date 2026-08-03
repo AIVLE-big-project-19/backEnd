@@ -37,6 +37,12 @@ public class MainController {
         return mainService.searchVWorldPlace(keyword);
     }
 
+    @GetMapping("/map/address")
+    @ResponseBody
+    public String addressProxy(@RequestParam("point") String point) {
+        return mainService.getVWorldAddress(point);
+    }
+
     private List<Map<String, Object>> getSampleLocations() {
         List<Map<String, Object>> sampleLocations = new ArrayList<>();
         return sampleLocations;
