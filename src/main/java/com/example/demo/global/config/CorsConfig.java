@@ -16,7 +16,8 @@ public class CorsConfig {
 
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://infra-amplify-deploy.d2bi30avd3chif.amplifyapp.com"
+                "https://infra-amplify-deploy.d2bi30avd3chif.amplifyapp.com",
+                "https://main.d2bi30avd3chif.amplifyapp.com"
         ));
 
         configuration.setAllowedMethods(List.of("*"));
