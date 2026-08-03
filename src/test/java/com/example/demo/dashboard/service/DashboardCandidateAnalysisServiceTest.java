@@ -1,5 +1,6 @@
 package com.example.demo.dashboard.service;
 
+import com.example.demo.dashboard.client.PvgisClient;
 import com.example.demo.idleland.client.MlScoringClient;
 import com.example.demo.idleland.client.VWorldImageClient;
 import com.example.demo.idleland.client.VisionAiClient;
@@ -13,6 +14,7 @@ import com.example.demo.report.dto.Simulation;
 import com.example.demo.report.dto.SiteInfo;
 import com.example.demo.report.dto.VisionAiSimulation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -25,6 +27,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class DashboardCandidateAnalysisServiceTest {
@@ -41,8 +45,16 @@ class DashboardCandidateAnalysisServiceTest {
     @Mock
     private VisionAiClient visionAiClient;
 
+    @Mock
+    private PvgisClient pvgisClient;
+
     @InjectMocks
     private DashboardCandidateAnalysisService service;
+
+    @BeforeEach
+    void setUpPvgisFallback() {
+        lenient().when(pvgisClient.forecast(any(PvgisClient.Request.class))).thenReturn(Optional.empty());
+    }
 
     @Test
     void ML_상세결과를_대시보드_응답으로_변환한다() {
@@ -119,6 +131,53 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.estimatedAnnualRevenue()).isEqualTo(3_952_000L);
         assertThat(result.roiPercent()).isEqualTo(16d);
         assertThat(result.paybackPeriodYears()).isEqualTo(6.3d);
+        assertThat(result.generationForecast().fallback()).isTrue();
+        assertThat(result.generationForecast().monthly()).hasSize(12);
+        assertThat(result.generationForecast().monthly().stream()
+                .mapToLong(item -> item.generationKwh()).sum()).isEqualTo(24_700L);
+    }
+
+    @Test
+    void PVGIS_월별_발전량을_연간_발전량과_경제성에_반영한다() {
+        IdleLand idleLand = IdleLand.builder()
+                .id(9L)
+                .sourceId("SITE-9")
+                .address("충청남도 홍성군")
+                .assetTypeNorm("BUILDING")
+                .latitude(36.6)
+                .longitude(126.6)
+                .build();
+        MlRankResponse rankResponse = new MlRankResponse();
+        rankResponse.setTopCandidates(List.of(analysis()));
+        List<PvgisClient.MonthlyGeneration> monthly = java.util.stream.IntStream.rangeClosed(1, 12)
+                .mapToObj(month -> new PvgisClient.MonthlyGeneration(month, 12_000L))
+                .toList();
+
+        when(idleLandRepository.findById(9L)).thenReturn(Optional.of(idleLand));
+        when(mlScoringClient.rank("building", List.of(idleLand), 1, true)).thenReturn(rankResponse);
+        when(pvgisClient.forecast(any(PvgisClient.Request.class))).thenReturn(Optional.of(
+                new PvgisClient.Forecast(
+                        "PVGIS 5.3 / ERA5",
+                        PvgisClient.METHOD,
+                        120,
+                        30d,
+                        0d,
+                        14d,
+                        false,
+                        monthly,
+                        144_000L
+                )
+        ));
+
+        var result = service.analyze(9L);
+
+        assertThat(result.annualGenerationKwh()).isEqualTo(144_000L);
+        assertThat(result.estimatedAnnualRevenue()).isEqualTo(23_040_000L);
+        assertThat(result.roiPercent()).isEqualTo(14.8d);
+        assertThat(result.paybackPeriodYears()).isEqualTo(6.8d);
+        assertThat(result.generationForecast().source()).isEqualTo("PVGIS 5.3 / ERA5");
+        assertThat(result.generationForecast().fallback()).isFalse();
+        assertThat(result.generationForecast().monthly()).hasSize(12);
     }
 
     private AiAnalysisResponse analysis() {
