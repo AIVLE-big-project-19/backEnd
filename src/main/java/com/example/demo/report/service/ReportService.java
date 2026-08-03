@@ -13,6 +13,7 @@ import com.example.demo.report.dto.Simulation;
 import com.example.demo.report.dto.VisionAiSimulation;
 import com.example.demo.report.dto.XaiExplanation;
 import com.itextpdf.io.font.PdfEncodings;
+import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
@@ -21,6 +22,7 @@ import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.element.Text;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,12 @@ public class ReportService {
     private static final DeviceRgb LIGHT_BLUE_BG = new DeviceRgb(235, 242, 250);
     private static final DeviceRgb BORDER_GRAY = new DeviceRgb(210, 214, 220);
     private static final String TARGET_TYPE_ROOF = "ROOF";
+
+    // Vision AI(visionAI/app/inference.py의 OVERLAY_COLORS)가 분석 이미지에 칠하는 색과 동일하게 맞춘 범례.
+    // BGR (255,0,0)/(0,200,0)/(0,200,255) -> RGB로 변환한 값.
+    private static final DeviceRgb VISION_COLOR_BUILDING = new DeviceRgb(0, 0, 255);
+    private static final DeviceRgb VISION_COLOR_LAND = new DeviceRgb(0, 200, 0);
+    private static final DeviceRgb VISION_COLOR_PARKING_LOT = new DeviceRgb(255, 200, 0);
 
     private final AiAnalysisClient aiAnalysisClient;
 
@@ -99,6 +108,9 @@ public class ReportService {
         }
 
         addSectionHeader(document, boldFont, "3. Vision AI 영상 분석 및 발전/수익성 시뮬레이션");
+        if (data.getAnnotatedImageBase64() != null && !data.getAnnotatedImageBase64().isBlank()) {
+            addAnnotatedImage(document, data.getAnnotatedImageBase64());
+        }
         VisionAiSimulation visionAiSimulation = data.getVisionAiSimulation();
         if (visionAiSimulation != null) {
             document.add(new Paragraph("Vision AI 이미지 레이어 분석")
@@ -132,6 +144,34 @@ public class ReportService {
             }
             return PdfFontFactory.createFont(is.readAllBytes(), PdfEncodings.IDENTITY_H);
         }
+    }
+
+    private void addAnnotatedImage(Document document, String base64Png) {
+        try {
+            byte[] imageBytes = Base64.getDecoder().decode(base64Png);
+            Image image = new Image(ImageDataFactory.create(imageBytes))
+                    .setWidth(UnitValue.createPercentValue(60))
+                    .setMarginBottom(4);
+            document.add(image);
+            addVisionColorLegend(document);
+        } catch (Exception e) {
+            // 이미지 디코딩 실패는 보고서 생성 자체를 막지 않는다.
+        }
+    }
+
+    // 이미지에 칠해진 색이 각각 무엇을 뜻하는지 이미지 바로 아래에 간단히 표시한다.
+    private void addVisionColorLegend(Document document) {
+        Paragraph legend = new Paragraph().setFontSize(8.5f).setMarginBottom(10);
+        legend.add(new Text("색상 안내  ").setFontColor(new DeviceRgb(120, 126, 135)));
+        addLegendItem(legend, VISION_COLOR_BUILDING, "건물");
+        addLegendItem(legend, VISION_COLOR_LAND, "토지");
+        addLegendItem(legend, VISION_COLOR_PARKING_LOT, "주차장");
+        document.add(legend);
+    }
+
+    private void addLegendItem(Paragraph legend, DeviceRgb color, String label) {
+        legend.add(new Text("■ ").setFontColor(color));
+        legend.add(new Text(label + "   ").setFontColor(new DeviceRgb(60, 66, 75)));
     }
 
     private void addGradeSummary(Document document, PdfFont boldFont, ScoresAndEvaluation scores) {
@@ -249,6 +289,8 @@ public class ReportService {
 
     private LinkedHashMap<String, String> roofVisionLabels() {
         LinkedHashMap<String, String> labels = new LinkedHashMap<>();
+        labels.put("vision_candidate_type", "Vision AI 인식 유형");
+        labels.put("vision_confidence_percent", "탐지 신뢰도");
         labels.put("roof_structure_type", "지붕 형태 및 구조");
         labels.put("roof_slope_deg", "지붕 경사도");
         labels.put("obstacle_shading_ratio_percent", "장애물 / 음영 비율");
@@ -260,6 +302,8 @@ public class ReportService {
 
     private LinkedHashMap<String, String> landVisionLabels() {
         LinkedHashMap<String, String> labels = new LinkedHashMap<>();
+        labels.put("vision_candidate_type", "Vision AI 인식 유형");
+        labels.put("vision_confidence_percent", "탐지 신뢰도");
         labels.put("slope_degree", "지형 경사도");
         labels.put("aspect_direction", "부지 방위");
         labels.put("vegetation_coverage_percent", "식생 피복률");
@@ -270,12 +314,21 @@ public class ReportService {
         return labels;
     }
 
+    private static final Map<String, String> VISION_CANDIDATE_TYPE_LABELS = Map.of(
+            "land", "토지",
+            "building", "건물",
+            "parking_lot", "주차장"
+    );
+
     private String formatVisionValue(String key, Object value) {
         if (value == null) {
             return "-";
         }
         if (value instanceof Boolean bool) {
             return bool ? "예" : "아니오";
+        }
+        if ("vision_candidate_type".equals(key)) {
+            return VISION_CANDIDATE_TYPE_LABELS.getOrDefault(String.valueOf(value), String.valueOf(value));
         }
         String suffix = "";
         if (key.endsWith("_percent")) {

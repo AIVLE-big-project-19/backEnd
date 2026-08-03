@@ -13,7 +13,6 @@ public class DemoApplication {
 		setIfPresent(dotenv, "MAIL_USERNAME");
 		setIfPresent(dotenv, "MAIL_PASSWORD");
 		setIfPresent(dotenv, "JWT_SECRET");
-		setIfPresent(dotenv, "OPENAI_API_KEY");
 		setIfPresent(dotenv, "GOOGLE_CLIENT_ID");
 		setIfPresent(dotenv, "GOOGLE_CLIENT_SECRET");
 
