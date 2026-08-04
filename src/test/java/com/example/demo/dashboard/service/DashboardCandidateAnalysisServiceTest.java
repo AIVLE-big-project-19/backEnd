@@ -79,6 +79,9 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.siteType()).isEqualTo("ROOF");
         assertThat(result.suitabilityScore()).isEqualTo(91);
         assertThat(result.capacityKw()).isEqualTo(120);
+        assertThat(result.capacityEstimate().registeredType()).isEqualTo("ROOF");
+        assertThat(result.capacityEstimate().areaPerKwM2()).isEqualTo(7.5d);
+        assertThat(result.capacityEstimate().availableAreaM2()).isEqualTo(900d);
         assertThat(result.scores().ml()).isEqualTo(93);
         assertThat(result.roofAnalysis().slopeDegrees()).isEqualTo(12d);
         verify(mlScoringClient).rank("building", List.of(idleLand), 1, true);
@@ -118,7 +121,10 @@ class DashboardCandidateAnalysisServiceTest {
                                 "available_area_m2", 186.69d,
                                 "availability_rate_percent", 12.45d
                         ),
-                        "3_vision_ai_and_simulation", Map.of("vision_analysis", Map.of())
+                        "3_vision_ai_and_simulation", Map.of(
+                                "vision_analysis", Map.of("candidate_type", "building"),
+                                "simulation", Map.of("recommended_capacity_kw", 25)
+                        )
                 ))
         ));
 
@@ -127,6 +133,10 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.usableRoofAreaM2()).isEqualTo(186.69d);
         assertThat(result.roofUtilizationRate()).isEqualTo(12.45d);
         assertThat(result.capacityKw()).isEqualTo(19);
+        assertThat(result.capacityEstimate().registeredType()).isEqualTo("LAND");
+        assertThat(result.capacityEstimate().visionType()).isEqualTo("ROOF");
+        assertThat(result.capacityEstimate().areaPerKwM2()).isEqualTo(10d);
+        assertThat(result.capacityEstimate().source()).isEqualTo("REGISTERED_TYPE_AREA");
         assertThat(result.annualGenerationKwh()).isEqualTo(24_700L);
         assertThat(result.estimatedAnnualRevenue()).isEqualTo(3_952_000L);
         assertThat(result.roiPercent()).isEqualTo(16d);

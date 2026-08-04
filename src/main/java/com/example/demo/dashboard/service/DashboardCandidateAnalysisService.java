@@ -32,7 +32,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DashboardCandidateAnalysisService {
 
-    private static final double AREA_PER_KW_M2 = 10d;
+    private static final double LAND_AREA_PER_KW_M2 = 10d;
+    private static final double ROOF_AREA_PER_KW_M2 = 7.5d;
     private static final long GENERATION_PER_KW = 1_300L;
     private static final long INSTALLATION_COST_PER_KW = 1_300_000L;
     private static final long REVENUE_PER_KWH = 160L;
@@ -70,15 +71,15 @@ public class DashboardCandidateAnalysisService {
         ScoresAndEvaluation evaluation = analysis.getScoresAndEvaluation();
         DetailScores details = evaluation == null ? null : evaluation.getDetailScores();
         VisionAiSimulation vision = analysis.getVisionAiSimulation();
-        Simulation simulation = vision == null ? null : vision.getSimulation();
         Double availableArea = site == null ? null : site.getAvailableArea();
         Map<String, Object> visionValues = vision == null || vision.getVisionAnalysis() == null
                 ? Map.of()
                 : vision.getVisionAnalysis();
-        String siteType = normalizeSiteType(analysis.getTargetType(), idleLand.getAssetTypeNorm());
+        String siteType = registeredSiteType(idleLand.getAssetTypeNorm());
         DashboardCandidateAnalysisResponse.RoofAnalysis roofAnalysis =
-                toRoofAnalysis(visionValues, analysis.getTargetType(), site);
-        Integer capacityKw = resolveCapacity(simulation, availableArea);
+                toRoofAnalysis(visionValues, siteType, site);
+        CapacityResolution capacityResolution = resolveCapacity(siteType, visionValues, availableArea);
+        Integer capacityKw = capacityResolution.capacityKw();
         Optional<PvgisClient.Forecast> pvgisForecast = fetchGenerationForecast(
                 idleLand,
                 siteType,
@@ -86,7 +87,6 @@ public class DashboardCandidateAnalysisService {
                 capacityKw
         );
         EconomicEstimate economics = resolveEconomics(
-                simulation,
                 capacityKw,
                 pvgisForecast.map(PvgisClient.Forecast::annualGenerationKwh).orElse(null)
         );
@@ -108,6 +108,7 @@ public class DashboardCandidateAnalysisService {
                 evaluation == null ? null : evaluation.getGrade(),
                 evaluation == null ? null : evaluation.getPriorityRank(),
                 economics.capacityKw(),
+                capacityResolution.estimate(),
                 economics.annualGenerationKwh(),
                 economics.annualRevenueKrw(),
                 economics.roiPercent(),
@@ -216,32 +217,53 @@ public class DashboardCandidateAnalysisService {
         return fallback;
     }
 
-    private Integer resolveCapacity(Simulation simulation, Double availableArea) {
-        Integer capacityKw = simulation == null ? null : simulation.getRecommendedCapacityKw();
-        if (capacityKw == null && availableArea != null && availableArea > 0) {
-            capacityKw = Math.max(3, (int) Math.round(availableArea / AREA_PER_KW_M2));
+    private CapacityResolution resolveCapacity(
+            String registeredType,
+            Map<String, Object> visionValues,
+            Double availableArea
+    ) {
+        double areaPerKwM2 = "ROOF".equals(registeredType)
+                ? ROOF_AREA_PER_KW_M2
+                : LAND_AREA_PER_KW_M2;
+        String visionType = normalizeVisionType(text(visionValues.get("candidate_type"), null));
+        Integer capacityKw = availableArea != null && availableArea > 0
+                ? Math.max(3, (int) Math.round(availableArea / areaPerKwM2))
+                : null;
+        String source = capacityKw == null ? "AREA_UNAVAILABLE" : "REGISTERED_TYPE_AREA";
+
+        return new CapacityResolution(
+                capacityKw,
+                new DashboardCandidateAnalysisResponse.CapacityEstimate(
+                        registeredType,
+                        visionType,
+                        availableArea,
+                        areaPerKwM2,
+                        "max(3, round(availableAreaM2 / areaPerKwM2))",
+                        source
+                )
+        );
+    }
+
+    private String normalizeVisionType(String visionType) {
+        if (visionType == null || visionType.isBlank()) {
+            return null;
         }
-        return capacityKw;
+        return switch (visionType.trim().toUpperCase()) {
+            case "BUILDING", "ROOF" -> "ROOF";
+            case "LAND" -> "LAND";
+            case "PARKING_LOT" -> "PARKING_LOT";
+            default -> visionType.trim().toUpperCase();
+        };
     }
 
     private EconomicEstimate resolveEconomics(
-            Simulation simulation,
             Integer capacityKw,
             Long locationBasedAnnualGenerationKwh
     ) {
-        boolean locationBased = locationBasedAnnualGenerationKwh != null;
-        Long annualGenerationKwh = locationBased
-                ? locationBasedAnnualGenerationKwh
-                : simulation == null ? null : simulation.getAnnualGenerationKwh();
-        Long annualRevenueKrw = locationBased
-                ? null
-                : simulation == null ? null : simulation.getAnnualRevenueKrw();
-        Double roiPercent = locationBased
-                ? null
-                : simulation == null ? null : simulation.getRoiPercent();
-        Double paybackYears = locationBased
-                ? null
-                : simulation == null ? null : simulation.getPaybackYears();
+        Long annualGenerationKwh = locationBasedAnnualGenerationKwh;
+        Long annualRevenueKrw = null;
+        Double roiPercent = null;
+        Double paybackYears = null;
 
         if (annualGenerationKwh == null && capacityKw != null) {
             annualGenerationKwh = capacityKw * GENERATION_PER_KW;
@@ -371,6 +393,11 @@ public class DashboardCandidateAnalysisService {
             Double paybackYears
     ) {}
 
+    private record CapacityResolution(
+            Integer capacityKw,
+            DashboardCandidateAnalysisResponse.CapacityEstimate estimate
+    ) {}
+
     private Double availabilityRate(SiteInfo site, Double availableArea) {
         if (site != null && site.getAvailabilityRatePercent() != null) {
             return site.getAvailabilityRatePercent();
@@ -443,10 +470,7 @@ public class DashboardCandidateAnalysisService {
         return items;
     }
 
-    private String normalizeSiteType(String targetType, String assetType) {
-        if ("ROOF".equalsIgnoreCase(targetType) || "BUILDING".equalsIgnoreCase(targetType)) {
-            return "ROOF";
-        }
+    private String registeredSiteType(String assetType) {
         return "BUILDING".equalsIgnoreCase(assetType) ? "ROOF" : "LAND";
     }
 

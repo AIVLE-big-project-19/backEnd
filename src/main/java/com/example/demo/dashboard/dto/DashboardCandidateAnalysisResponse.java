@@ -16,6 +16,7 @@ public record DashboardCandidateAnalysisResponse(
         String grade,
         String priorityRank,
         Integer capacityKw,
+        CapacityEstimate capacityEstimate,
         Long annualGenerationKwh,
         Long estimatedAnnualRevenue,
         Double roiPercent,
@@ -26,6 +27,15 @@ public record DashboardCandidateAnalysisResponse(
         List<RiskItem> risks,
         List<ChecklistAction> checklist
 ) {
+    public record CapacityEstimate(
+            String registeredType,
+            String visionType,
+            Double availableAreaM2,
+            Double areaPerKwM2,
+            String formula,
+            String source
+    ) {}
+
     public record GenerationForecast(
             String source,
             String method,
