@@ -194,16 +194,26 @@ public class DashboardCandidateAnalysisService {
         }
     }
 
+
     private Double number(Object value, Double fallback) {
-        return value instanceof Number number ? number.doubleValue() : fallback;
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        return fallback;
     }
 
     private Integer integer(Object value, Integer fallback) {
-        return value instanceof Number number ? (int) Math.round(number.doubleValue()) : fallback;
+        if (value instanceof Number number) {
+            return (int) Math.round(number.doubleValue());
+        }
+        return fallback;
     }
 
     private Long longNumber(Object value, Long fallback) {
-        return value instanceof Number number ? Math.round(number.doubleValue()) : fallback;
+        if (value instanceof Number number) {
+            return Math.round(number.doubleValue());
+        }
+        return fallback;
     }
 
     private Integer resolveCapacity(Simulation simulation, Double availableArea) {
