@@ -35,7 +35,10 @@ public class DashboardCandidateAnalysisService {
     private static final double LAND_AREA_PER_KW_M2 = 10d;
     private static final double ROOF_AREA_PER_KW_M2 = 7.5d;
     private static final long GENERATION_PER_KW = 1_300L;
-    private static final long INSTALLATION_COST_PER_KW = 1_300_000L;
+    private static final long LAND_INSTALLATION_COST_PER_KW = 1_200_000L;
+    private static final long ROOF_INSTALLATION_COST_PER_KW = 1_300_000L;
+    private static final long PARKING_LOT_INSTALLATION_COST_PER_KW = 1_500_000L;
+    private static final double ANNUAL_OM_RATE = 0.015d;
     private static final long REVENUE_PER_KWH = 160L;
     private static final double DEFAULT_TILT_DEGREES = 30d;
     private static final double[] MONTHLY_FALLBACK_WEIGHTS = {
@@ -86,13 +89,23 @@ public class DashboardCandidateAnalysisService {
                 roofAnalysis,
                 capacityKw
         );
-        EconomicEstimate economics = resolveEconomics(
+        Long resolvedAnnualGenerationKwh = resolveAnnualGeneration(
                 capacityKw,
-                pvgisForecast.map(PvgisClient.Forecast::annualGenerationKwh).orElse(null)
+                pvgisForecast.map(PvgisClient.Forecast::annualGenerationKwh).orElse(null),
+                idleLand.getPvoutAvgDaily()
+        );
+        EconomicEstimate economics = resolveEconomics(
+                siteType,
+                capacityKw,
+                resolvedAnnualGenerationKwh
         );
         DashboardCandidateAnalysisResponse.GenerationForecast generationForecast = pvgisForecast
                 .map(this::toGenerationForecast)
-                .orElseGet(() -> fallbackGenerationForecast(economics, roofAnalysis));
+                .orElseGet(() -> fallbackGenerationForecast(
+                        economics,
+                        roofAnalysis,
+                        idleLand.getPvoutAvgDaily()
+                ));
 
         return new DashboardCandidateAnalysisResponse(
                 idleLand.getId(),
@@ -109,6 +122,7 @@ public class DashboardCandidateAnalysisService {
                 evaluation == null ? null : evaluation.getPriorityRank(),
                 economics.capacityKw(),
                 capacityResolution.estimate(),
+                economics.assumptions(),
                 economics.annualGenerationKwh(),
                 economics.annualRevenueKrw(),
                 economics.roiPercent(),
@@ -257,6 +271,7 @@ public class DashboardCandidateAnalysisService {
     }
 
     private EconomicEstimate resolveEconomics(
+            String registeredType,
             Integer capacityKw,
             Long locationBasedAnnualGenerationKwh
     ) {
@@ -272,23 +287,61 @@ public class DashboardCandidateAnalysisService {
             annualRevenueKrw = annualGenerationKwh * REVENUE_PER_KWH;
         }
 
-        if (capacityKw != null && annualRevenueKrw != null && annualRevenueKrw > 0) {
-            long installationCost = capacityKw * INSTALLATION_COST_PER_KW;
-            if (roiPercent == null) {
-                roiPercent = roundOneDecimal(annualRevenueKrw / (double) installationCost * 100d);
-            }
-            if (paybackYears == null) {
-                paybackYears = roundOneDecimal(installationCost / (double) annualRevenueKrw);
-            }
+        long installationCostPerKw = installationCostPerKw(registeredType);
+        Long installationCost = capacityKw == null ? null : capacityKw * installationCostPerKw;
+        Long annualOmCost = installationCost == null ? null : Math.round(installationCost * ANNUAL_OM_RATE);
+        Long annualNetIncome = annualRevenueKrw == null || annualOmCost == null
+                ? null
+                : annualRevenueKrw - annualOmCost;
+
+        if (installationCost != null && annualNetIncome != null && annualNetIncome > 0) {
+            roiPercent = roundOneDecimal(annualNetIncome / (double) installationCost * 100d);
+            paybackYears = roundOneDecimal(installationCost / (double) annualNetIncome);
         }
+
+        DashboardCandidateAnalysisResponse.EconomicAssumptions assumptions =
+                new DashboardCandidateAnalysisResponse.EconomicAssumptions(
+                        registeredType,
+                        installationCostPerKw,
+                        installationCost,
+                        ANNUAL_OM_RATE * 100d,
+                        annualOmCost,
+                        annualNetIncome
+                );
 
         return new EconomicEstimate(
                 capacityKw,
                 annualGenerationKwh,
                 annualRevenueKrw,
                 roiPercent,
-                paybackYears
+                paybackYears,
+                assumptions
         );
+    }
+
+    private Long resolveAnnualGeneration(
+            Integer capacityKw,
+            Long pvgisAnnualGenerationKwh,
+            Double pvoutAvgDaily
+    ) {
+        if (pvgisAnnualGenerationKwh != null) {
+            return pvgisAnnualGenerationKwh;
+        }
+        if (capacityKw == null) {
+            return null;
+        }
+        if (pvoutAvgDaily != null && Double.isFinite(pvoutAvgDaily) && pvoutAvgDaily > 0) {
+            return Math.round(capacityKw * pvoutAvgDaily * 365d);
+        }
+        return capacityKw * GENERATION_PER_KW;
+    }
+
+    private long installationCostPerKw(String registeredType) {
+        return switch (registeredType) {
+            case "ROOF" -> ROOF_INSTALLATION_COST_PER_KW;
+            case "PARKING_LOT" -> PARKING_LOT_INSTALLATION_COST_PER_KW;
+            default -> LAND_INSTALLATION_COST_PER_KW;
+        };
     }
 
     private Optional<PvgisClient.Forecast> fetchGenerationForecast(
@@ -321,6 +374,10 @@ public class DashboardCandidateAnalysisService {
                 forecast.tiltDegrees(),
                 forecast.azimuthDegrees(),
                 forecast.systemLossPercent(),
+                null,
+                forecast.capacityKw() > 0
+                        ? roundOneDecimal(forecast.annualGenerationKwh() / (double) forecast.capacityKw())
+                        : null,
                 forecast.fallback(),
                 forecast.monthly().stream()
                         .map(item -> new DashboardCandidateAnalysisResponse.MonthlyGeneration(
@@ -334,7 +391,8 @@ public class DashboardCandidateAnalysisService {
 
     private DashboardCandidateAnalysisResponse.GenerationForecast fallbackGenerationForecast(
             EconomicEstimate economics,
-            DashboardCandidateAnalysisResponse.RoofAnalysis roofAnalysis
+            DashboardCandidateAnalysisResponse.RoofAnalysis roofAnalysis,
+            Double pvoutAvgDaily
     ) {
         if (economics.annualGenerationKwh() == null) {
             return null;
@@ -354,13 +412,16 @@ public class DashboardCandidateAnalysisService {
             monthly.add(new DashboardCandidateAnalysisResponse.MonthlyGeneration(index + 1, generationKwh));
         }
 
+        boolean usesPvout = pvoutAvgDaily != null && Double.isFinite(pvoutAvgDaily) && pvoutAvgDaily > 0;
         return new DashboardCandidateAnalysisResponse.GenerationForecast(
-                "내부 계절 가중치",
-                "SEASONAL_WEIGHT_FALLBACK",
+                usesPvout ? "후보지 pvout_avg_daily" : "고정 발전원단위",
+                usesPvout ? "PVOUT_DAILY_SPECIFIC_YIELD" : "FIXED_SPECIFIC_YIELD_FALLBACK",
                 economics.capacityKw(),
                 roofAnalysis.installAngleDegrees() == null ? DEFAULT_TILT_DEGREES : roofAnalysis.installAngleDegrees(),
                 toPvgisAzimuth(roofAnalysis.moduleDirection()),
                 null,
+                usesPvout ? pvoutAvgDaily : null,
+                usesPvout ? roundOneDecimal(pvoutAvgDaily * 365d) : (double) GENERATION_PER_KW,
                 true,
                 monthly,
                 economics.annualGenerationKwh()
@@ -390,7 +451,8 @@ public class DashboardCandidateAnalysisService {
             Long annualGenerationKwh,
             Long annualRevenueKrw,
             Double roiPercent,
-            Double paybackYears
+            Double paybackYears,
+            DashboardCandidateAnalysisResponse.EconomicAssumptions assumptions
     ) {}
 
     private record CapacityResolution(
@@ -471,7 +533,13 @@ public class DashboardCandidateAnalysisService {
     }
 
     private String registeredSiteType(String assetType) {
-        return "BUILDING".equalsIgnoreCase(assetType) ? "ROOF" : "LAND";
+        if ("BUILDING".equalsIgnoreCase(assetType) || "ROOF".equalsIgnoreCase(assetType)) {
+            return "ROOF";
+        }
+        if ("PARKING_LOT".equalsIgnoreCase(assetType)) {
+            return "PARKING_LOT";
+        }
+        return "LAND";
     }
 
     private boolean isPositive(String value) {

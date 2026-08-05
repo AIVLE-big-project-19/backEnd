@@ -17,6 +17,7 @@ public record DashboardCandidateAnalysisResponse(
         String priorityRank,
         Integer capacityKw,
         CapacityEstimate capacityEstimate,
+        EconomicAssumptions economicAssumptions,
         Long annualGenerationKwh,
         Long estimatedAnnualRevenue,
         Double roiPercent,
@@ -36,6 +37,15 @@ public record DashboardCandidateAnalysisResponse(
             String source
     ) {}
 
+    public record EconomicAssumptions(
+            String registeredType,
+            Long installationCostPerKw,
+            Long estimatedInstallationCost,
+            Double annualOmRatePercent,
+            Long estimatedAnnualOmCost,
+            Long estimatedAnnualNetIncome
+    ) {}
+
     public record GenerationForecast(
             String source,
             String method,
@@ -43,6 +53,8 @@ public record DashboardCandidateAnalysisResponse(
             Double tiltDegrees,
             Double azimuthDegrees,
             Double systemLossPercent,
+            Double pvoutAvgDaily,
+            Double specificYieldKwhPerKwpYear,
             boolean fallback,
             List<MonthlyGeneration> monthly,
             Long annualGenerationKwh
