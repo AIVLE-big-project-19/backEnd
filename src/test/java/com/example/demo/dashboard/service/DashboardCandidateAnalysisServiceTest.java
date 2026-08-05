@@ -1,5 +1,6 @@
 package com.example.demo.dashboard.service;
 
+import com.example.demo.analysis.service.AnalysisSnapshotService;
 import com.example.demo.dashboard.client.PvgisClient;
 import com.example.demo.idleland.client.MlScoringClient;
 import com.example.demo.idleland.client.VWorldImageClient;
@@ -48,6 +49,9 @@ class DashboardCandidateAnalysisServiceTest {
     @Mock
     private PvgisClient pvgisClient;
 
+    @Mock
+    private AnalysisSnapshotService analysisSnapshotService;
+
     @InjectMocks
     private DashboardCandidateAnalysisService service;
 
@@ -73,7 +77,7 @@ class DashboardCandidateAnalysisServiceTest {
         when(idleLandRepository.findById(7L)).thenReturn(Optional.of(idleLand));
         when(mlScoringClient.rank("building", List.of(idleLand), 1, true)).thenReturn(rankResponse);
 
-        var result = service.analyze(7L);
+        var result = service.analyze(7L, 1L);
 
         assertThat(result.id()).isEqualTo(7L);
         assertThat(result.siteType()).isEqualTo("ROOF");
@@ -82,6 +86,8 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.capacityEstimate().registeredType()).isEqualTo("ROOF");
         assertThat(result.capacityEstimate().areaPerKwM2()).isEqualTo(7.5d);
         assertThat(result.capacityEstimate().availableAreaM2()).isEqualTo(900d);
+        assertThat(result.economicAssumptions().installationCostPerKw()).isEqualTo(1_300_000L);
+        assertThat(result.economicAssumptions().annualOmRatePercent()).isEqualTo(1.5d);
         assertThat(result.scores().ml()).isEqualTo(93);
         assertThat(result.roofAnalysis().slopeDegrees()).isEqualTo(12d);
         verify(mlScoringClient).rank("building", List.of(idleLand), 1, true);
@@ -128,7 +134,7 @@ class DashboardCandidateAnalysisServiceTest {
                 ))
         ));
 
-        var result = service.analyze(8L);
+        var result = service.analyze(8L, 1L);
 
         assertThat(result.usableRoofAreaM2()).isEqualTo(186.69d);
         assertThat(result.roofUtilizationRate()).isEqualTo(12.45d);
@@ -139,8 +145,12 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.capacityEstimate().source()).isEqualTo("REGISTERED_TYPE_AREA");
         assertThat(result.annualGenerationKwh()).isEqualTo(24_700L);
         assertThat(result.estimatedAnnualRevenue()).isEqualTo(3_952_000L);
-        assertThat(result.roiPercent()).isEqualTo(16d);
+        assertThat(result.roiPercent()).isEqualTo(15.8d);
         assertThat(result.paybackPeriodYears()).isEqualTo(6.3d);
+        assertThat(result.economicAssumptions().installationCostPerKw()).isEqualTo(1_200_000L);
+        assertThat(result.economicAssumptions().estimatedInstallationCost()).isEqualTo(22_800_000L);
+        assertThat(result.economicAssumptions().estimatedAnnualOmCost()).isEqualTo(342_000L);
+        assertThat(result.economicAssumptions().estimatedAnnualNetIncome()).isEqualTo(3_610_000L);
         assertThat(result.generationForecast().fallback()).isTrue();
         assertThat(result.generationForecast().monthly()).hasSize(12);
         assertThat(result.generationForecast().monthly().stream()
@@ -179,15 +189,77 @@ class DashboardCandidateAnalysisServiceTest {
                 )
         ));
 
-        var result = service.analyze(9L);
+        var result = service.analyze(9L, 1L);
 
         assertThat(result.annualGenerationKwh()).isEqualTo(144_000L);
         assertThat(result.estimatedAnnualRevenue()).isEqualTo(23_040_000L);
-        assertThat(result.roiPercent()).isEqualTo(14.8d);
-        assertThat(result.paybackPeriodYears()).isEqualTo(6.8d);
+        assertThat(result.roiPercent()).isEqualTo(13.3d);
+        assertThat(result.paybackPeriodYears()).isEqualTo(7.5d);
+        assertThat(result.economicAssumptions().installationCostPerKw()).isEqualTo(1_300_000L);
+        assertThat(result.economicAssumptions().estimatedAnnualOmCost()).isEqualTo(2_340_000L);
         assertThat(result.generationForecast().source()).isEqualTo("PVGIS 5.3 / ERA5");
         assertThat(result.generationForecast().fallback()).isFalse();
         assertThat(result.generationForecast().monthly()).hasSize(12);
+    }
+
+    @Test
+    void 주차장형은_kW당_150만원과_연간_O_and_M_1_5퍼센트를_적용한다() {
+        IdleLand idleLand = IdleLand.builder()
+                .id(10L)
+                .sourceId("SITE-10")
+                .address("충청남도 주차장 후보지")
+                .assetTypeNorm("PARKING_LOT")
+                .latitude(36.6)
+                .longitude(126.6)
+                .build();
+        MlRankResponse rankResponse = new MlRankResponse();
+        rankResponse.setTopCandidates(List.of(analysis()));
+
+        when(idleLandRepository.findById(10L)).thenReturn(Optional.of(idleLand));
+        when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
+
+        var result = service.analyze(10L, 1L);
+
+        assertThat(result.siteType()).isEqualTo("PARKING_LOT");
+        assertThat(result.capacityKw()).isEqualTo(90);
+        assertThat(result.economicAssumptions().installationCostPerKw()).isEqualTo(1_500_000L);
+        assertThat(result.economicAssumptions().estimatedInstallationCost()).isEqualTo(135_000_000L);
+        assertThat(result.economicAssumptions().estimatedAnnualOmCost()).isEqualTo(2_025_000L);
+        assertThat(result.economicAssumptions().estimatedAnnualNetIncome()).isEqualTo(16_695_000L);
+        assertThat(result.roiPercent()).isEqualTo(12.4d);
+        assertThat(result.paybackPeriodYears()).isEqualTo(8.1d);
+    }
+
+    @Test
+    void PVGIS가_실패하면_후보지별_pvout_avg_daily를_우선_적용한다() {
+        IdleLand idleLand = IdleLand.builder()
+                .id(11L)
+                .sourceId("SITE-11")
+                .address("충청남도 pvout 후보지")
+                .assetTypeNorm("LAND")
+                .latitude(36.6)
+                .longitude(126.6)
+                .pvoutAvgDaily(4.0d)
+                .build();
+        MlRankResponse rankResponse = new MlRankResponse();
+        rankResponse.setTopCandidates(List.of(analysis()));
+
+        when(idleLandRepository.findById(11L)).thenReturn(Optional.of(idleLand));
+        when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
+
+        var result = service.analyze(11L, 1L);
+
+        assertThat(result.capacityKw()).isEqualTo(90);
+        assertThat(result.annualGenerationKwh()).isEqualTo(131_400L);
+        assertThat(result.generationForecast().source()).isEqualTo("후보지 pvout_avg_daily");
+        assertThat(result.generationForecast().method()).isEqualTo("PVOUT_DAILY_SPECIFIC_YIELD");
+        assertThat(result.generationForecast().pvoutAvgDaily()).isEqualTo(4.0d);
+        assertThat(result.generationForecast().specificYieldKwhPerKwpYear()).isEqualTo(1_460d);
+        assertThat(result.generationForecast().monthly()).hasSize(12);
+        assertThat(result.generationForecast().monthly().stream()
+                .mapToLong(item -> item.generationKwh()).sum()).isEqualTo(131_400L);
+        assertThat(result.roiPercent()).isEqualTo(18d);
+        assertThat(result.paybackPeriodYears()).isEqualTo(5.6d);
     }
 
     private AiAnalysisResponse analysis() {

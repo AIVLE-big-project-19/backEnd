@@ -15,6 +15,9 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailSender;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +45,10 @@ public class BoardServiceImpl implements BoardService {
     private final BoardAttachmentRepository boardAttachmentRepository;
     private final BoardFileStorage boardFileStorage;
     private final NotificationService notificationService;
+    private final MailSender mailSender;
+
+    @Value("${app.admin-email}")
+    private String adminEmail;
 
     @Override
     public BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin) {
@@ -70,7 +77,19 @@ public class BoardServiceImpl implements BoardService {
             notificationService.notifyNewInquiry(savedBoard);
         }
 
+        if (isInquiry(savedBoard)) {
+            notifyAdminOfNewInquiry(savedBoard);
+        }
+
         return entityToResponse(savedBoard, userId);
+    }
+
+    private void notifyAdminOfNewInquiry(Board board) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(adminEmail.split("\\s*,\\s*"));
+        message.setSubject("[1:1문의] " + board.getTitle());
+        message.setText(resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent());
+        mailSender.send(message);
     }
 
     @Override
