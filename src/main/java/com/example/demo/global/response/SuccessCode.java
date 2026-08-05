@@ -38,6 +38,7 @@ public enum SuccessCode {
     MY_BOARD_LIST_FOUND("내 게시글 조회 성공"),
     ADMIN_USER_LIST_FOUND("회원 목록 조회 성공"),
     ADMIN_USER_ROLE_UPDATED("회원 권한이 변경되었습니다."),
+    ADMIN_INQUIRY_UNANSWERED_FOUND("미답변 문의 조회 성공"),
     GOOGLE_LOGIN("구글 로그인 성공"),
     TERMS_FOUND("약관 조회 성공"),
     CONSENT_STATUS_FOUND("동의 현황 조회 성공"),

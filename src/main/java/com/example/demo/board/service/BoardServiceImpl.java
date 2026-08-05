@@ -14,6 +14,9 @@ import com.example.demo.global.response.PageResponse;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailSender;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +43,10 @@ public class BoardServiceImpl implements BoardService {
     private final UserRepository userRepository;
     private final BoardAttachmentRepository boardAttachmentRepository;
     private final BoardFileStorage boardFileStorage;
+    private final MailSender mailSender;
+
+    @Value("${app.admin-email}")
+    private String adminEmail;
 
     @Override
     public BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin) {
@@ -64,7 +71,33 @@ public class BoardServiceImpl implements BoardService {
         validateAttachmentLimits(savedBoard, files, List.of());
         storeAttachments(savedBoard, files);
 
+        if (isInquiry(savedBoard)) {
+            notifyAdminOfNewInquiry(savedBoard);
+        }
+
         return entityToResponse(savedBoard, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BoardResponse> getUnansweredInquiries() {
+        return boardRepository.findByCategoryAndCommentsIsEmptyOrderByCreatedAtDesc(INQUIRY).stream()
+                .map(board -> entityToResponse(board, null))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countUnansweredInquiries() {
+        return boardRepository.countByCategoryAndCommentsIsEmpty(INQUIRY);
+    }
+
+    private void notifyAdminOfNewInquiry(Board board) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(adminEmail);
+        message.setSubject("[1:1문의] " + board.getTitle());
+        message.setText(resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent());
+        mailSender.send(message);
     }
 
     @Override

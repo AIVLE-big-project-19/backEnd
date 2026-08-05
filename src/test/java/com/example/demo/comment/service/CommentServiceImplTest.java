@@ -13,12 +13,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mail.MailSender;
+import org.springframework.mail.SimpleMailMessage;
 
 import java.util.Optional;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,13 +34,15 @@ class CommentServiceImplTest {
     private BoardRepository boardRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private MailSender mailSender;
 
     private CommentServiceImpl commentService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        commentService = new CommentServiceImpl(commentRepository, boardRepository, userRepository);
+        commentService = new CommentServiceImpl(commentRepository, boardRepository, userRepository, mailSender);
     }
 
     @Test
@@ -172,6 +177,33 @@ class CommentServiceImplTest {
         assertThat(response.getContent()).isEqualTo("비밀댓글입니다.");
         assertThat(response.getCanView()).isFalse();
         assertThat(response.getSecret()).isTrue();
+    }
+
+    @Test
+    void 관리자가_문의글에_답변하면_작성자에게_메일이_발송된다() {
+        User writer = User.builder().id(1L).loginId("writer1").email("writer@example.com").build();
+        Board board = Board.builder().boardId(1L).category("1:1문의").author(writer).build();
+        User admin = User.builder().id(99L).loginId("admin").build();
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(admin));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        commentService.createComment(1L, 99L, true, request("답변드립니다"));
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void 작성자_이메일이_없으면_메일을_보내지_않는다() {
+        Board board = Board.builder().boardId(1L).category("1:1문의").author(null).build();
+        User admin = User.builder().id(99L).loginId("admin").build();
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(board));
+        when(userRepository.findById(99L)).thenReturn(Optional.of(admin));
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        commentService.createComment(1L, 99L, true, request("답변드립니다"));
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 
     private User user(Long id, String loginId) {

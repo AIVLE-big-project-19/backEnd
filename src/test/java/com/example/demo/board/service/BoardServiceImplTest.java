@@ -13,13 +13,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.mail.MailSender;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.springframework.mail.SimpleMailMessage;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,12 +35,14 @@ class BoardServiceImplTest {
     @Mock UserRepository userRepository;
     @Mock BoardAttachmentRepository boardAttachmentRepository;
     @Mock BoardFileStorage boardFileStorage;
+    @Mock MailSender mailSender;
     private BoardServiceImpl boardService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository, boardFileStorage);
+        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository, boardFileStorage, mailSender);
+        ReflectionTestUtils.setField(boardService, "adminEmail", "admin@example.com");
     }
 
     @Test
@@ -126,6 +132,33 @@ class BoardServiceImplTest {
         verify(boardFileStorage).upload(file, "text/plain");
         assertThat(response.getAttachments()).hasSize(1);
         assertThat(response.getAttachments().get(0).getOriginalFilename()).isEqualTo("guide.txt");
+    }
+
+    @Test
+    void 문의글이_등록되면_관리자에게_메일이_발송된다() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "member")));
+        when(boardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boardService.createBoard(request("1:1문의"), 1L, false);
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void 일반게시글이_등록되면_메일이_발송되지_않는다() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "member")));
+        when(boardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        boardService.createBoard(request("자유게시판"), 1L, false);
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void 답변없는_문의_개수를_조회한다() {
+        when(boardRepository.countByCategoryAndCommentsIsEmpty("1:1문의")).thenReturn(3L);
+
+        assertThat(boardService.countUnansweredInquiries()).isEqualTo(3L);
     }
 
     private User user(Long id, String loginId) {
