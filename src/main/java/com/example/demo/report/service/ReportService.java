@@ -220,8 +220,8 @@ public class ReportService {
         }
         addValueCell(table, font, availableAreaValue);
 
-        addLabelCell(table, boldFont, "소유 / 관리 기관");
-        addValueCell(table, font, safe(site.getOwnerAgency()));
+//        addLabelCell(table, boldFont, "소유 / 관리 기관");
+//        addValueCell(table, font, safe(site.getOwnerAgency()));
         addLabelCell(table, boldFont, "분석 일자");
         addValueCell(table, font, safe(site.getCreatedAt()));
 
