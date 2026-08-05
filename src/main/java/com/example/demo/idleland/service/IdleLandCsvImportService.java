@@ -25,24 +25,6 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class IdleLandCsvImportService {
-
-    private static final List<String> REQUIRED_COLUMNS = List.of(
-            "source_id_ml", "address_ml", "longitude", "latitude", "시도", "시군구",
-            "자산구분_ML", "설치구분", "label",
-            "ghi_avg_daily", "pvout_avg_daily", "dni_avg_daily", "dif_avg_daily", "gti_avg_daily", "temp_avg",
-            "wind_speed_10m", "wind_speed_50m", "wind_speed_100m", "slope_avg", "slope_dir", "elevation_avg",
-            "Hillshade", "Southness", "distance_to_substation_km", "distance_to_powerline_km",
-            "substation_count_5km", "powerline_length_5km_km", "high_voltage_line_nearby_5km",
-            "substation_max_voltage_kv", "powerline_max_voltage_kv",
-            "substation_max_voltage_kv_missing", "powerline_max_voltage_kv_missing",
-            "asset_type_code", "region_group"
-    );
-
-    private static final Set<String> LAND_VALUES = Set.of("토지", "토지형", "LAND", "land", "0");
-    private static final Set<String> BUILDING_VALUES = Set.of("건물", "건물형", "BUILDING", "building", "1");
-
-    private final IdleLandRepository idleLandRepository;
-
     @Transactional
     public IdleLandImportResultDto replaceAll(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -54,7 +36,7 @@ public class IdleLandCsvImportService {
             throw new CustomException(ErrorCode.IDLE_LAND_CSV_PARSE_FAILED, "업로드한 CSV에 유효한 데이터가 없습니다.");
         }
 
-        idleLandRepository.deleteAllInBatch();
+        idleLandRepository.truncateTable();
         idleLandRepository.saveAll(parsed);
 
         int land = 0;
@@ -73,6 +55,24 @@ public class IdleLandCsvImportService {
 
         return new IdleLandImportResultDto(parsed.size(), land, building, unknown);
     }
+
+
+    private static final List<String> REQUIRED_COLUMNS = List.of(
+            "source_id_ml", "address_ml", "longitude", "latitude", "시도", "시군구",
+            "자산구분_ML", "설치구분", "label",
+            "ghi_avg_daily", "pvout_avg_daily", "dni_avg_daily", "dif_avg_daily", "gti_avg_daily", "temp_avg",
+            "wind_speed_10m", "wind_speed_50m", "wind_speed_100m", "slope_avg", "slope_dir", "elevation_avg",
+            "Hillshade", "Southness", "distance_to_substation_km", "distance_to_powerline_km",
+            "substation_count_5km", "powerline_length_5km_km", "high_voltage_line_nearby_5km",
+            "substation_max_voltage_kv", "powerline_max_voltage_kv",
+            "substation_max_voltage_kv_missing", "powerline_max_voltage_kv_missing",
+            "asset_type_code", "region_group"
+    );
+    private static final Set<String> LAND_VALUES = Set.of("토지", "토지형", "LAND", "land", "0");
+
+    private static final Set<String> BUILDING_VALUES = Set.of("건물", "건물형", "BUILDING", "building", "1");
+
+    private final IdleLandRepository idleLandRepository;
 
     private List<IdleLand> parse(MultipartFile file) {
         String content;
