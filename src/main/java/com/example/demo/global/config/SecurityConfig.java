@@ -36,6 +36,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/users/me", "/users/me/**").authenticated()
+                        .requestMatchers("/analysis-history/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/boards").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/boards/*").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/boards/*").authenticated()

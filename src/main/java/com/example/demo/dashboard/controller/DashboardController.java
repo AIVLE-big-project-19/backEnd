@@ -40,7 +40,7 @@ public class DashboardController {
     public ApiResponse<DashboardCandidateAnalysisResponse> candidateAnalysis(@PathVariable Long idleLandId) {
         return ApiResponse.success(
                 SuccessCode.BOARD_FOUND,
-                dashboardCandidateAnalysisService.analyze(idleLandId)
+                dashboardCandidateAnalysisService.analyze(idleLandId, currentUserId())
         );
     }
 

@@ -25,7 +25,8 @@ public record DashboardCandidateAnalysisResponse(
         ScoreBreakdown scores,
         RoofAnalysis roofAnalysis,
         List<RiskItem> risks,
-        List<ChecklistAction> checklist
+        List<ChecklistAction> checklist,
+        Long analysisId
 ) {
     public record CapacityEstimate(
             String registeredType,

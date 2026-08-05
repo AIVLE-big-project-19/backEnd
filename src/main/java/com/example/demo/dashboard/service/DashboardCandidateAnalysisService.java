@@ -2,6 +2,7 @@ package com.example.demo.dashboard.service;
 
 import com.example.demo.dashboard.client.PvgisClient;
 import com.example.demo.dashboard.dto.DashboardCandidateAnalysisResponse;
+import com.example.demo.analysis.service.AnalysisSnapshotService;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.idleland.client.MlScoringClient;
@@ -48,8 +49,9 @@ public class DashboardCandidateAnalysisService {
     private final VWorldImageClient vWorldImageClient;
     private final VisionAiClient visionAiClient;
     private final PvgisClient pvgisClient;
+    private final AnalysisSnapshotService analysisSnapshotService;
 
-    public DashboardCandidateAnalysisResponse analyze(Long idleLandId) {
+    public DashboardCandidateAnalysisResponse analyze(Long idleLandId, Long userId) {
         IdleLand idleLand = idleLandRepository.findById(idleLandId)
                 .orElseThrow(() -> new CustomException(ErrorCode.IDLE_LAND_NOT_FOUND));
         String datasetType = "BUILDING".equals(idleLand.getAssetTypeNorm()) ? "building" : "land";
@@ -63,7 +65,17 @@ public class DashboardCandidateAnalysisService {
         }
 
         enrichWithVisionAnalysis(idleLand, analysis);
-        return toResponse(idleLand, analysis);
+        DashboardCandidateAnalysisResponse dashboardResponse = toResponse(idleLand, analysis);
+        Long analysisId = analysisSnapshotService.save(userId, idleLand, analysis, dashboardResponse);
+        return new DashboardCandidateAnalysisResponse(
+                dashboardResponse.id(), dashboardResponse.sourceId(), dashboardResponse.address(), dashboardResponse.siteType(),
+                dashboardResponse.latitude(), dashboardResponse.longitude(), dashboardResponse.areaM2(), dashboardResponse.usableRoofAreaM2(),
+                dashboardResponse.roofUtilizationRate(), dashboardResponse.suitabilityScore(), dashboardResponse.grade(),
+                dashboardResponse.priorityRank(), dashboardResponse.capacityKw(), dashboardResponse.capacityEstimate(),
+                dashboardResponse.annualGenerationKwh(), dashboardResponse.estimatedAnnualRevenue(), dashboardResponse.roiPercent(),
+                dashboardResponse.paybackPeriodYears(), dashboardResponse.generationForecast(), dashboardResponse.scores(),
+                dashboardResponse.roofAnalysis(), dashboardResponse.risks(), dashboardResponse.checklist(), analysisId
+        );
     }
 
     private DashboardCandidateAnalysisResponse toResponse(IdleLand idleLand, AiAnalysisResponse analysis) {
@@ -121,7 +133,8 @@ public class DashboardCandidateAnalysisService {
                 ),
                 roofAnalysis,
                 toRisks(analysis),
-                toChecklist(analysis.getPreInvestigationChecklist())
+                toChecklist(analysis.getPreInvestigationChecklist()),
+                null
         );
     }
 

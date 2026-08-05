@@ -1,6 +1,7 @@
 package com.example.demo.report.controller;
 
 import com.example.demo.idleland.service.IdleLandReportService;
+import com.example.demo.analysis.service.AnalysisSnapshotService;
 import com.example.demo.report.service.ReportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import org.springframework.http.HttpHeaders;
 import java.util.Map;
@@ -25,6 +28,9 @@ public class ReportController {
 
     @Autowired
     private IdleLandReportService idleLandReportService;
+
+    @Autowired
+    private AnalysisSnapshotService analysisSnapshotService;
 
     @PostMapping("/generate")
     public ResponseEntity<byte[]> getPdf(@RequestBody Map<String, String> request) {
@@ -48,6 +54,21 @@ public class ReportController {
         headers.setContentType(MediaType.APPLICATION_PDF);
         headers.setContentDispositionFormData("attachment", "report.pdf");
         return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/generate/analysis/{analysisId}")
+    public ResponseEntity<byte[]> getAnalysisSnapshotPdf(@PathVariable Long analysisId) throws Exception {
+        byte[] pdfContents = analysisSnapshotService.getOrCreatePdf(analysisId, currentUserId());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "report.pdf");
+        return new ResponseEntity<>(pdfContents, headers, HttpStatus.OK);
+    }
+
+    private Long currentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Object principal = authentication == null ? null : authentication.getPrincipal();
+        return principal instanceof Long id ? id : null;
     }
 
     // AI 서버 연동 전 더미 데이터로 PDF를 확인하기 위한 테스트용 엔드포인트
