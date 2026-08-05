@@ -37,11 +37,6 @@ public interface BoardService {
     // 게시글 삭제
     void deleteBoard(Long boardId, Long userId, boolean isAdmin);
 
-    // 답변 없는 1:1문의 목록/개수 (관리자 알림용 폴링)
-    List<BoardResponse> getUnansweredInquiries();
-
-    long countUnansweredInquiries();
-
     record BoardFile(String originalFilename, String contentType, byte[] content) {}
 
 }

@@ -154,13 +154,6 @@ class BoardServiceImplTest {
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 
-    @Test
-    void 답변없는_문의_개수를_조회한다() {
-        when(boardRepository.countByCategoryAndCommentsIsEmpty("1:1문의")).thenReturn(3L);
-
-        assertThat(boardService.countUnansweredInquiries()).isEqualTo(3L);
-    }
-
     private User user(Long id, String loginId) {
         return User.builder().id(id).loginId(loginId).build();
     }

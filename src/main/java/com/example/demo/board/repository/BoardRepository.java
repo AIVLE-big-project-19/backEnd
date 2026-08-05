@@ -31,10 +31,6 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     boolean existsByCategoryAndTitle(String category, String title);
 
-    long countByCategoryAndCommentsIsEmpty(String category);
-
-    List<Board> findByCategoryAndCommentsIsEmptyOrderByCreatedAtDesc(String category);
-
     List<Board> findByTitleContaining(String keyword);
 
     List<Board> findByWriter(String writer);

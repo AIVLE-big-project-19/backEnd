@@ -78,20 +78,6 @@ public class BoardServiceImpl implements BoardService {
         return entityToResponse(savedBoard, userId);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<BoardResponse> getUnansweredInquiries() {
-        return boardRepository.findByCategoryAndCommentsIsEmptyOrderByCreatedAtDesc(INQUIRY).stream()
-                .map(board -> entityToResponse(board, null))
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public long countUnansweredInquiries() {
-        return boardRepository.countByCategoryAndCommentsIsEmpty(INQUIRY);
-    }
-
     private void notifyAdminOfNewInquiry(Board board) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(adminEmail.split("\\s*,\\s*"));
