@@ -94,7 +94,7 @@ public class BoardServiceImpl implements BoardService {
 
     private void notifyAdminOfNewInquiry(Board board) {
         SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(adminEmail);
+        message.setTo(adminEmail.split("\\s*,\\s*"));
         message.setSubject("[1:1문의] " + board.getTitle());
         message.setText(resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent());
         mailSender.send(message);
