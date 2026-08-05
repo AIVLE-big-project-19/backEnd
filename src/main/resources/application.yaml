@@ -69,6 +69,7 @@ app:
     bucket: ${AWS_S3_BUCKET:}
     region: ${AWS_REGION:ap-northeast-2}
     prefix: ${AWS_S3_BOARD_PREFIX:board-attachments}
+  admin-email: ${ADMIN_EMAIL:changeme@gmail.com}
 
 ai:
   server:
