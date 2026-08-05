@@ -10,6 +10,7 @@ import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
+import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,7 @@ public class CommentServiceImpl implements CommentService {
     private final CommentRepository commentRepository;
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     /**
      * 댓글 등록
@@ -52,6 +54,11 @@ public class CommentServiceImpl implements CommentService {
                 .build();
 
         Comment savedComment = commentRepository.save(comment);
+        if (isInquiry(board)) {
+            if (isAdmin) {
+                notificationService.notifyInquiryReply(board, savedComment);
+            }
+        }
 
         return entityToResponse(savedComment, userId, isAdmin);
     }

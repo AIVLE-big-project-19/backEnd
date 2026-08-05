@@ -13,6 +13,7 @@ import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.response.PageResponse;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
+import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,6 +41,7 @@ public class BoardServiceImpl implements BoardService {
     private final UserRepository userRepository;
     private final BoardAttachmentRepository boardAttachmentRepository;
     private final BoardFileStorage boardFileStorage;
+    private final NotificationService notificationService;
 
     @Override
     public BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin) {
@@ -63,6 +65,10 @@ public class BoardServiceImpl implements BoardService {
         Board savedBoard = boardRepository.save(board);
         validateAttachmentLimits(savedBoard, files, List.of());
         storeAttachments(savedBoard, files);
+        notificationService.notifyNewNotice(savedBoard);
+        if (INQUIRY.equals(savedBoard.getCategory()) && !isAdmin) {
+            notificationService.notifyNewInquiry(savedBoard);
+        }
 
         return entityToResponse(savedBoard, userId);
     }
