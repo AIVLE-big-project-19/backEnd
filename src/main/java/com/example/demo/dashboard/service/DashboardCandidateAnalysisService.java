@@ -75,6 +75,7 @@ public class DashboardCandidateAnalysisService {
                 dashboardResponse.latitude(), dashboardResponse.longitude(), dashboardResponse.areaM2(), dashboardResponse.usableRoofAreaM2(),
                 dashboardResponse.roofUtilizationRate(), dashboardResponse.suitabilityScore(), dashboardResponse.grade(),
                 dashboardResponse.priorityRank(), dashboardResponse.capacityKw(), dashboardResponse.capacityEstimate(),
+                dashboardResponse.economicAssumptions(),
                 dashboardResponse.annualGenerationKwh(), dashboardResponse.estimatedAnnualRevenue(), dashboardResponse.roiPercent(),
                 dashboardResponse.paybackPeriodYears(), dashboardResponse.generationForecast(), dashboardResponse.scores(),
                 dashboardResponse.roofAnalysis(), dashboardResponse.risks(), dashboardResponse.checklist(), analysisId

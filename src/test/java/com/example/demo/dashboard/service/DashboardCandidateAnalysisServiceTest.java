@@ -1,5 +1,6 @@
 package com.example.demo.dashboard.service;
 
+import com.example.demo.analysis.service.AnalysisSnapshotService;
 import com.example.demo.dashboard.client.PvgisClient;
 import com.example.demo.idleland.client.MlScoringClient;
 import com.example.demo.idleland.client.VWorldImageClient;
@@ -48,6 +49,9 @@ class DashboardCandidateAnalysisServiceTest {
     @Mock
     private PvgisClient pvgisClient;
 
+    @Mock
+    private AnalysisSnapshotService analysisSnapshotService;
+
     @InjectMocks
     private DashboardCandidateAnalysisService service;
 
@@ -73,7 +77,7 @@ class DashboardCandidateAnalysisServiceTest {
         when(idleLandRepository.findById(7L)).thenReturn(Optional.of(idleLand));
         when(mlScoringClient.rank("building", List.of(idleLand), 1, true)).thenReturn(rankResponse);
 
-        var result = service.analyze(7L);
+        var result = service.analyze(7L, 1L);
 
         assertThat(result.id()).isEqualTo(7L);
         assertThat(result.siteType()).isEqualTo("ROOF");
@@ -130,7 +134,7 @@ class DashboardCandidateAnalysisServiceTest {
                 ))
         ));
 
-        var result = service.analyze(8L);
+        var result = service.analyze(8L, 1L);
 
         assertThat(result.usableRoofAreaM2()).isEqualTo(186.69d);
         assertThat(result.roofUtilizationRate()).isEqualTo(12.45d);
@@ -185,7 +189,7 @@ class DashboardCandidateAnalysisServiceTest {
                 )
         ));
 
-        var result = service.analyze(9L);
+        var result = service.analyze(9L, 1L);
 
         assertThat(result.annualGenerationKwh()).isEqualTo(144_000L);
         assertThat(result.estimatedAnnualRevenue()).isEqualTo(23_040_000L);
@@ -214,7 +218,7 @@ class DashboardCandidateAnalysisServiceTest {
         when(idleLandRepository.findById(10L)).thenReturn(Optional.of(idleLand));
         when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
 
-        var result = service.analyze(10L);
+        var result = service.analyze(10L, 1L);
 
         assertThat(result.siteType()).isEqualTo("PARKING_LOT");
         assertThat(result.capacityKw()).isEqualTo(90);
@@ -243,7 +247,7 @@ class DashboardCandidateAnalysisServiceTest {
         when(idleLandRepository.findById(11L)).thenReturn(Optional.of(idleLand));
         when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
 
-        var result = service.analyze(11L);
+        var result = service.analyze(11L, 1L);
 
         assertThat(result.capacityKw()).isEqualTo(90);
         assertThat(result.annualGenerationKwh()).isEqualTo(131_400L);
