@@ -9,6 +9,7 @@ RUN ./gradlew --no-daemon clean bootJar -x test
 
 # --- Runtime stage ---
 FROM eclipse-temurin:17-jre-jammy AS runtime
+ENV TZ=Asia/Seoul
 RUN useradd --system --uid 1000 spring
 WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
