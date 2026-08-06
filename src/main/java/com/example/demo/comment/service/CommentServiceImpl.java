@@ -12,7 +12,10 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class CommentServiceImpl implements CommentService {
+
+    private static final Logger log = LoggerFactory.getLogger(CommentServiceImpl.class);
 
     private static final String NOTICE = "공지사항";
     private static final String FAQ = "FAQ";
@@ -84,7 +89,11 @@ public class CommentServiceImpl implements CommentService {
         message.setTo(writer.getEmail());
         message.setSubject("[1:1문의] 문의하신 글에 답변이 등록되었습니다");
         message.setText("\"" + board.getTitle() + "\" 문의에 답변이 등록되었습니다. 게시판에서 확인해주세요.");
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (MailException e) {
+            log.warn("답변 등록 알림 메일 발송 실패 (writer={})", writer.getEmail(), e);
+        }
     }
 
     /**

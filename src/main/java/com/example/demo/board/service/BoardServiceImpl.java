@@ -15,7 +15,10 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class BoardServiceImpl implements BoardService {
+
+    private static final Logger log = LoggerFactory.getLogger(BoardServiceImpl.class);
 
     private static final int MAX_ATTACHMENT_COUNT = 10;
     private static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
@@ -93,7 +98,11 @@ public class BoardServiceImpl implements BoardService {
         message.setTo(adminEmail.split("\\s*,\\s*"));
         message.setSubject("[1:1문의] " + board.getTitle());
         message.setText(resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent());
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (MailException e) {
+            log.warn("신규 문의 관리자 알림 메일 발송 실패", e);
+        }
     }
 
     @Override
