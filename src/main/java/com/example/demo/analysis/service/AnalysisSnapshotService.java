@@ -6,6 +6,8 @@ import com.example.demo.dashboard.dto.DashboardCandidateAnalysisResponse;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.idleland.entity.IdleLand;
+import com.example.demo.idleland.repository.IdleLandRepository;
+import com.example.demo.idleland.service.VisionEnrichmentService;
 import com.example.demo.report.dto.AiAnalysisResponse;
 import com.example.demo.report.service.ReportService;
 import com.example.demo.user.entity.User;
@@ -25,7 +27,9 @@ public class AnalysisSnapshotService {
 
     private final AnalysisSnapshotRepository snapshotRepository;
     private final UserRepository userRepository;
+    private final IdleLandRepository idleLandRepository;
     private final ReportService reportService;
+    private final VisionEnrichmentService visionEnrichmentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -111,15 +115,14 @@ public class AnalysisSnapshotService {
             String status
     ) {}
 
+    // PDF는 캐싱하지 않고 매번 새로 만든다: 스냅샷 저장 시점에 Vision 보강이 실패했더라도
+    // 여기서 다시 시도해서, 실패 상태가 그대로 영구 캐싱되는 일이 없게 한다.
     @Transactional
     public byte[] getOrCreatePdf(Long snapshotId, Long userId) throws IOException {
         AnalysisSnapshot snapshot = snapshotRepository.findById(snapshotId)
                 .orElseThrow(() -> new CustomException(ErrorCode.IDLE_LAND_NOT_FOUND));
         if (snapshot.getUser() != null && !snapshot.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.BOARD_ACCESS_DENIED);
-        }
-        if (snapshot.getPdfBytes() != null && snapshot.getPdfBytes().length > 0) {
-            return snapshot.getPdfBytes();
         }
 
         AiAnalysisResponse analysis;
@@ -128,9 +131,10 @@ public class AnalysisSnapshotService {
         } catch (JsonProcessingException exception) {
             throw new IOException("저장된 분석 결과를 읽을 수 없습니다.", exception);
         }
-        byte[] pdf = reportService.generateReportPdf(analysis);
-        snapshot.cachePdf(pdf);
-        snapshotRepository.save(snapshot);
-        return pdf;
+
+        idleLandRepository.findById(snapshot.getCandidateId())
+                .ifPresent(idleLand -> visionEnrichmentService.enrich(idleLand, analysis));
+
+        return reportService.generateReportPdf(analysis);
     }
 }
