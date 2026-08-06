@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!--
+        로그 메시지에 password/token/secret 값이나 Authorization: Bearer 헤더가
+        그대로 찍히지 않도록 출력 패턴 단계에서 마스킹한다.
+        (호출부마다 고치는 대신 모든 appender가 공유하는 패턴 한 곳에서 처리)
+    -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %replace(%replace(%msg){'(?i)(password|pwd|accessToken|access_token|refreshToken|refresh_token|secret)(=|"?\s*:\s*"?)\S+', '$1$2***'}){'(?i)(bearer\s+)\S+', '$1***'}%n%ex</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
