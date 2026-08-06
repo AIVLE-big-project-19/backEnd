@@ -6,17 +6,15 @@ import com.example.demo.analysis.service.AnalysisSnapshotService;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.idleland.client.MlScoringClient;
-import com.example.demo.idleland.client.VWorldImageClient;
-import com.example.demo.idleland.client.VisionAiClient;
 import com.example.demo.idleland.dto.MlRankResponse;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
+import com.example.demo.idleland.service.VisionEnrichmentService;
 import com.example.demo.report.dto.AiAnalysisResponse;
 import com.example.demo.report.dto.ChecklistItem;
 import com.example.demo.report.dto.DetailScores;
 import com.example.demo.report.dto.RiskCheck;
 import com.example.demo.report.dto.ScoresAndEvaluation;
-import com.example.demo.report.dto.Simulation;
 import com.example.demo.report.dto.SiteInfo;
 import com.example.demo.report.dto.VisionAiSimulation;
 import lombok.RequiredArgsConstructor;
@@ -49,8 +47,7 @@ public class DashboardCandidateAnalysisService {
 
     private final IdleLandRepository idleLandRepository;
     private final MlScoringClient mlScoringClient;
-    private final VWorldImageClient vWorldImageClient;
-    private final VisionAiClient visionAiClient;
+    private final VisionEnrichmentService visionEnrichmentService;
     private final PvgisClient pvgisClient;
     private final AnalysisSnapshotService analysisSnapshotService;
 
@@ -67,7 +64,7 @@ public class DashboardCandidateAnalysisService {
             throw new CustomException(ErrorCode.ML_SERVER_REQUEST_FAILED, "ML 서버가 상세 분석 결과를 반환하지 않았습니다.");
         }
 
-        enrichWithVisionAnalysis(idleLand, analysis);
+        visionEnrichmentService.enrich(idleLand, analysis);
         DashboardCandidateAnalysisResponse dashboardResponse = toResponse(idleLand, analysis);
         Long analysisId = analysisSnapshotService.save(userId, idleLand, analysis, dashboardResponse);
         return new DashboardCandidateAnalysisResponse(
@@ -151,98 +148,6 @@ public class DashboardCandidateAnalysisService {
                 toChecklist(analysis.getPreInvestigationChecklist()),
                 null
         );
-    }
-
-    private void enrichWithVisionAnalysis(IdleLand idleLand, AiAnalysisResponse target) {
-        if (idleLand.getLongitude() == null || idleLand.getLatitude() == null) {
-            return;
-        }
-
-        try {
-            VWorldImageClient.VisionImageSource imageSource =
-                    vWorldImageClient.fetchImage(idleLand.getLongitude(), idleLand.getLatitude());
-            VisionAiClient.VisionPredictResponse visionResult =
-                    visionAiClient.predict(imageSource.imageBytes(), imageSource.extent3857());
-            if (visionResult.getPredictions() == null || visionResult.getPredictions().isEmpty()) {
-                return;
-            }
-
-            Map<String, Object> integrated = mlScoringClient.analyzeVisionJson(visionResult.getPredictions());
-            Object resultsValue = integrated.get("results");
-            if (resultsValue instanceof List<?> results && !results.isEmpty()
-                    && results.get(0) instanceof Map<?, ?> result) {
-                mergeVisionResult(target, result);
-            }
-        } catch (Exception exception) {
-            log.warn("후보지 id={} Vision 분석 보강 실패: {}", idleLand.getId(), exception.getMessage());
-        }
-    }
-
-    private void mergeVisionResult(AiAnalysisResponse target, Map<?, ?> result) {
-        SiteInfo site = target.getSiteInfo();
-        if (site != null && result.get("1_site_info") instanceof Map<?, ?> siteValues) {
-            site.setTotalArea(number(siteValues.get("total_area_m2"), site.getTotalArea()));
-            site.setAvailableArea(number(siteValues.get("available_area_m2"), site.getAvailableArea()));
-            site.setAvailabilityRatePercent(number(
-                    siteValues.get("availability_rate_percent"),
-                    site.getAvailabilityRatePercent()
-            ));
-        }
-
-        if (!(result.get("3_vision_ai_and_simulation") instanceof Map<?, ?> visionValues)) {
-            return;
-        }
-        VisionAiSimulation vision = target.getVisionAiSimulation();
-        if (vision == null) {
-            vision = new VisionAiSimulation();
-            target.setVisionAiSimulation(vision);
-        }
-        if (visionValues.get("vision_analysis") instanceof Map<?, ?> rawAnalysis) {
-            Map<String, Object> analysisValues = new java.util.LinkedHashMap<>();
-            rawAnalysis.forEach((key, value) -> analysisValues.put(String.valueOf(key), value));
-            vision.setVisionAnalysis(analysisValues);
-        }
-        if (visionValues.get("simulation") instanceof Map<?, ?> simulationValues) {
-            Simulation simulation = vision.getSimulation();
-            if (simulation == null) {
-                simulation = new Simulation();
-                vision.setSimulation(simulation);
-            }
-            simulation.setRecommendedCapacityKw(integer(
-                    simulationValues.get("recommended_capacity_kw"),
-                    simulation.getRecommendedCapacityKw()
-            ));
-            simulation.setAnnualGenerationKwh(longNumber(
-                    simulationValues.get("annual_generation_kwh"),
-                    simulation.getAnnualGenerationKwh()
-            ));
-            simulation.setAnnualRevenueKrw(longNumber(
-                    simulationValues.get("annual_revenue_krw"),
-                    simulation.getAnnualRevenueKrw()
-            ));
-        }
-    }
-
-
-    private Double number(Object value, Double fallback) {
-        if (value instanceof Number number) {
-            return number.doubleValue();
-        }
-        return fallback;
-    }
-
-    private Integer integer(Object value, Integer fallback) {
-        if (value instanceof Number number) {
-            return (int) Math.round(number.doubleValue());
-        }
-        return fallback;
-    }
-
-    private Long longNumber(Object value, Long fallback) {
-        if (value instanceof Number number) {
-            return Math.round(number.doubleValue());
-        }
-        return fallback;
     }
 
     private CapacityResolution resolveCapacity(

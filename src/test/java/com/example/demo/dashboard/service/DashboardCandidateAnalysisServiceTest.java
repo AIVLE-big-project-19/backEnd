@@ -3,11 +3,10 @@ package com.example.demo.dashboard.service;
 import com.example.demo.analysis.service.AnalysisSnapshotService;
 import com.example.demo.dashboard.client.PvgisClient;
 import com.example.demo.idleland.client.MlScoringClient;
-import com.example.demo.idleland.client.VWorldImageClient;
-import com.example.demo.idleland.client.VisionAiClient;
 import com.example.demo.idleland.dto.MlRankResponse;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
+import com.example.demo.idleland.service.VisionEnrichmentService;
 import com.example.demo.report.dto.AiAnalysisResponse;
 import com.example.demo.report.dto.DetailScores;
 import com.example.demo.report.dto.ScoresAndEvaluation;
@@ -29,7 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class DashboardCandidateAnalysisServiceTest {
@@ -41,10 +42,7 @@ class DashboardCandidateAnalysisServiceTest {
     private MlScoringClient mlScoringClient;
 
     @Mock
-    private VWorldImageClient vWorldImageClient;
-
-    @Mock
-    private VisionAiClient visionAiClient;
+    private VisionEnrichmentService visionEnrichmentService;
 
     @Mock
     private PvgisClient pvgisClient;
@@ -110,29 +108,22 @@ class DashboardCandidateAnalysisServiceTest {
         MlRankResponse rankResponse = new MlRankResponse();
         rankResponse.setTopCandidates(List.of(analysis));
 
-        List<Map<String, Object>> predictions = List.of(Map.of("real_area", 186.69d));
-        byte[] imageBytes = {1};
-        VisionAiClient.VisionPredictResponse visionResponse = new VisionAiClient.VisionPredictResponse();
-        visionResponse.setPredictions(predictions);
-
         when(idleLandRepository.findById(8L)).thenReturn(Optional.of(idleLand));
         when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
-        when(vWorldImageClient.fetchImage(127.1d, 36.9d))
-                .thenReturn(new VWorldImageClient.VisionImageSource(imageBytes, "extent"));
-        when(visionAiClient.predict(imageBytes, "extent")).thenReturn(visionResponse);
-        when(mlScoringClient.analyzeVisionJson(predictions)).thenReturn(Map.of(
-                "results", List.of(Map.of(
-                        "1_site_info", Map.of(
-                                "total_area_m2", 1_500d,
-                                "available_area_m2", 186.69d,
-                                "availability_rate_percent", 12.45d
-                        ),
-                        "3_vision_ai_and_simulation", Map.of(
-                                "vision_analysis", Map.of("candidate_type", "building"),
-                                "simulation", Map.of("recommended_capacity_kw", 25)
-                        )
-                ))
-        ));
+        // VisionEnrichmentService는 별도로 단위 테스트되는 컴포넌트이므로, 여기서는
+        // 그 결과로 AiAnalysisResponse가 어떻게 채워지는지만 흉내 낸다
+        // (실제로는 VWorld -> Vision AI -> ML(/analyze/vision-json)을 거쳐 같은 값이 채워짐).
+        doAnswer(invocation -> {
+            AiAnalysisResponse target = invocation.getArgument(1);
+            target.getSiteInfo().setAvailableArea(186.69d);
+            target.getSiteInfo().setAvailabilityRatePercent(12.45d);
+            Simulation visionSimulation = new Simulation();
+            visionSimulation.setRecommendedCapacityKw(25);
+            VisionAiSimulation vision = target.getVisionAiSimulation();
+            vision.setSimulation(visionSimulation);
+            vision.setVisionAnalysis(Map.of("candidate_type", "building"));
+            return null;
+        }).when(visionEnrichmentService).enrich(eq(idleLand), any(AiAnalysisResponse.class));
 
         var result = service.analyze(8L, 1L);
 
