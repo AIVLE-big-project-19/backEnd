@@ -12,6 +12,7 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,9 @@ public class CommentServiceImpl implements CommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final MailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String mailUsername;
 
     /**
      * 댓글 등록
@@ -76,6 +80,7 @@ public class CommentServiceImpl implements CommentService {
             return;
         }
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("SolarAivle <" + mailUsername + ">");
         message.setTo(writer.getEmail());
         message.setSubject("[1:1문의] 문의하신 글에 답변이 등록되었습니다");
         message.setText("\"" + board.getTitle() + "\" 문의에 답변이 등록되었습니다. 게시판에서 확인해주세요.");

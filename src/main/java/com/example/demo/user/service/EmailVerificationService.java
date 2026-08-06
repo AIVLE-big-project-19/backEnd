@@ -2,6 +2,7 @@ package com.example.demo.user.service;
 
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -24,6 +25,9 @@ public class EmailVerificationService {
     private final StringRedisTemplate redisTemplate;
     private final MailSender mailSender;
 
+    @Value("${spring.mail.username}")
+    private String mailUsername;
+
     public EmailVerificationService(StringRedisTemplate redisTemplate, MailSender mailSender) {
         this.redisTemplate = redisTemplate;
         this.mailSender = mailSender;
@@ -44,6 +48,7 @@ public class EmailVerificationService {
         String code = generateCode();
 
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("SolarAivle <" + mailUsername + ">");
         message.setTo(email);
         message.setSubject("[인증번호] " + purpose + " 이메일 인증");
         message.setText("인증번호는 " + code + " 입니다. 5분 이내에 입력해주세요.");
