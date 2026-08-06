@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.global.crypto.PiiCryptoService;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.security.jwt.JwtProvider;
@@ -55,12 +56,16 @@ class AuthServiceTest {
     @Mock
     private LoginAttemptService loginAttemptService;
 
+    @Mock
+    private PiiCryptoService piiCryptoService;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient, consentService, loginAttemptService);
+        authService = new AuthService(userRepository, refreshTokenRepository, jwtProvider, passwordEncoder, googleOAuthClient, consentService, loginAttemptService, piiCryptoService);
+        when(piiCryptoService.hashForSearch(anyString())).thenAnswer(invocation -> "hash:" + invocation.getArgument(0));
     }
 
     private User sampleUser() {
@@ -245,7 +250,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("newgoogle@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash("hash:newgoogle@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             saved.setId(10L);
@@ -292,7 +297,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("existing@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailHash("hash:existing@example.com")).thenReturn(Optional.of(existing));
         when(jwtProvider.generateAccessToken(20L, Role.USER)).thenReturn("access-token");
         when(jwtProvider.generateRefreshToken(20L)).thenReturn("refresh-token");
         when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
@@ -313,7 +318,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("racer@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash("hash:racer@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate email"));
 
         assertThatThrownBy(() -> authService.googleLogin("auth-code", "http://localhost:5173/callback"))
@@ -344,7 +349,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("local@example.com")).thenReturn(Optional.of(localUser));
+        when(userRepository.findByEmailHash("hash:local@example.com")).thenReturn(Optional.of(localUser));
 
         assertThatThrownBy(() -> authService.googleLogin("auth-code", "http://localhost:5173/callback"))
                 .isInstanceOf(CustomException.class)

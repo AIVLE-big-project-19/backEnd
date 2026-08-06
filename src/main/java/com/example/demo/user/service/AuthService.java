@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.global.crypto.PiiCryptoService;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.security.jwt.JwtProvider;
@@ -32,6 +33,7 @@ public class AuthService {
     private final GoogleOAuthClient googleOAuthClient;
     private final ConsentService consentService;
     private final LoginAttemptService loginAttemptService;
+    private final PiiCryptoService piiCryptoService;
 
     public AuthService(
             UserRepository userRepository,
@@ -40,7 +42,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             GoogleOAuthClient googleOAuthClient,
             ConsentService consentService,
-            LoginAttemptService loginAttemptService
+            LoginAttemptService loginAttemptService,
+            PiiCryptoService piiCryptoService
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -49,6 +52,7 @@ public class AuthService {
         this.googleOAuthClient = googleOAuthClient;
         this.consentService = consentService;
         this.loginAttemptService = loginAttemptService;
+        this.piiCryptoService = piiCryptoService;
     }
 
     @Transactional
@@ -74,11 +78,13 @@ public class AuthService {
     public TokenResponse googleLogin(String code, String redirectUri) {
         GoogleUserInfo googleUserInfo = googleOAuthClient.fetchUserInfo(code, redirectUri);
 
-        User user = userRepository.findByEmail(googleUserInfo.getEmail()).orElse(null);
+        String emailHash = piiCryptoService.hashForSearch(googleUserInfo.getEmail());
+        User user = userRepository.findByEmailHash(emailHash).orElse(null);
 
         if (user == null) {
             User newUser = User.builder()
                     .email(googleUserInfo.getEmail())
+                    .emailHash(emailHash)
                     .name(googleUserInfo.getName())
                     .provider(Provider.GOOGLE)
                     .providerId(googleUserInfo.getProviderId())
