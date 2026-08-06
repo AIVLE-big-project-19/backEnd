@@ -7,6 +7,7 @@ import com.example.demo.board.repository.BoardAttachmentRepository;
 import com.example.demo.board.storage.BoardFileStorage;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.notification.service.NotificationService;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,13 +36,14 @@ class BoardServiceImplTest {
     @Mock UserRepository userRepository;
     @Mock BoardAttachmentRepository boardAttachmentRepository;
     @Mock BoardFileStorage boardFileStorage;
+    @Mock NotificationService notificationService;
     @Mock MailSender mailSender;
     private BoardServiceImpl boardService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository, boardFileStorage, mailSender);
+        boardService = new BoardServiceImpl(boardRepository, userRepository, boardAttachmentRepository, boardFileStorage, notificationService, mailSender);
         ReflectionTestUtils.setField(boardService, "adminEmail", "admin@example.com");
     }
 

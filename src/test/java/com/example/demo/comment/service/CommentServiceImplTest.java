@@ -7,6 +7,7 @@ import com.example.demo.comment.entity.Comment;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.notification.service.NotificationService;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,8 @@ class CommentServiceImplTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private NotificationService notificationService;
+    @Mock
     private MailSender mailSender;
 
     private CommentServiceImpl commentService;
@@ -42,7 +45,7 @@ class CommentServiceImplTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        commentService = new CommentServiceImpl(commentRepository, boardRepository, userRepository, mailSender);
+        commentService = new CommentServiceImpl(commentRepository, boardRepository, userRepository, notificationService, mailSender);
     }
 
     @Test
