@@ -1,6 +1,5 @@
 package com.example.demo.user.service;
 
-import com.example.demo.global.crypto.PiiCryptoService;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.dto.FindIdResponse;
@@ -44,16 +43,12 @@ class UserServiceTest {
     @Mock
     private LoginAttemptService loginAttemptService;
 
-    @Mock
-    private PiiCryptoService piiCryptoService;
-
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository, consentService, loginAttemptService, piiCryptoService);
-        when(piiCryptoService.hashForSearch(anyString())).thenAnswer(invocation -> "hash:" + invocation.getArgument(0));
+        userService = new UserService(userRepository, emailVerificationService, passwordEncoder, refreshTokenRepository, consentService, loginAttemptService);
     }
 
     @Test
@@ -91,7 +86,7 @@ class UserServiceTest {
         SignupRequest request = validRequest();
         when(emailVerificationService.isVerified(request.getEmail())).thenReturn(true);
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(userRepository.existsByEmailHash("hash:" + request.getEmail())).thenReturn(true);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
 
         assertThatThrownBy(() -> userService.signup(request))
                 .isInstanceOf(CustomException.class)
@@ -104,7 +99,7 @@ class UserServiceTest {
         SignupRequest request = validRequest();
         when(emailVerificationService.isVerified(request.getEmail())).thenReturn(true);
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(userRepository.existsByEmailHash("hash:" + request.getEmail())).thenReturn(false);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("ENCODED");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -127,7 +122,7 @@ class UserServiceTest {
         request.setMarketingAgreed(true);
         when(emailVerificationService.isVerified(request.getEmail())).thenReturn(true);
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
-        when(userRepository.existsByEmailHash("hash:" + request.getEmail())).thenReturn(false);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("ENCODED");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -155,7 +150,7 @@ class UserServiceTest {
                 .provider(Provider.LOCAL)
                 .role(Role.USER)
                 .build();
-        when(userRepository.findByEmailHash("hash:tester01@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("tester01@example.com")).thenReturn(Optional.of(user));
 
         userService.findIdSendCode("tester01@example.com");
 
@@ -164,7 +159,7 @@ class UserServiceTest {
 
     @Test
     void 등록되지_않은_이메일이면_아이디찾기_시_예외가_발생한다() {
-        when(userRepository.findByEmailHash("hash:nouser@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("nouser@example.com")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.findIdSendCode("nouser@example.com"))
                 .isInstanceOf(CustomException.class)
@@ -182,7 +177,7 @@ class UserServiceTest {
                 .provider(Provider.GOOGLE)
                 .role(Role.USER)
                 .build();
-        when(userRepository.findByEmailHash("hash:google-user@example.com")).thenReturn(Optional.of(googleUser));
+        when(userRepository.findByEmail("google-user@example.com")).thenReturn(Optional.of(googleUser));
 
         assertThatThrownBy(() -> userService.findIdSendCode("google-user@example.com"))
                 .isInstanceOf(CustomException.class)
@@ -200,7 +195,7 @@ class UserServiceTest {
                 .provider(Provider.GOOGLE)
                 .role(Role.USER)
                 .build();
-        when(userRepository.findByEmailHash("hash:google-user@example.com")).thenReturn(Optional.of(googleUser));
+        when(userRepository.findByEmail("google-user@example.com")).thenReturn(Optional.of(googleUser));
 
         assertThatThrownBy(() -> userService.findIdVerifyCode("google-user@example.com", "123456"))
                 .isInstanceOf(CustomException.class)
@@ -216,7 +211,7 @@ class UserServiceTest {
         User user = mock(User.class);
         when(user.getLoginId()).thenReturn("tester01");
         when(user.getCreatedAt()).thenReturn(createdAt);
-        when(userRepository.findByEmailHash("hash:tester01@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("tester01@example.com")).thenReturn(Optional.of(user));
 
         FindIdResponse response = userService.findIdVerifyCode("tester01@example.com", "123456");
 
