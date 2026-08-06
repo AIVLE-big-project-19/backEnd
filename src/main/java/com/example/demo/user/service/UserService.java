@@ -1,5 +1,6 @@
 package com.example.demo.user.service;
 
+import com.example.demo.global.crypto.PiiCryptoService;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.user.dto.FindIdResponse;
@@ -22,6 +23,7 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final ConsentService consentService;
     private final LoginAttemptService loginAttemptService;
+    private final PiiCryptoService piiCryptoService;
 
     public UserService(
             UserRepository userRepository,
@@ -29,7 +31,8 @@ public class UserService {
             PasswordEncoder passwordEncoder,
             RefreshTokenRepository refreshTokenRepository,
             ConsentService consentService,
-            LoginAttemptService loginAttemptService
+            LoginAttemptService loginAttemptService,
+            PiiCryptoService piiCryptoService
     ) {
         this.userRepository = userRepository;
         this.emailVerificationService = emailVerificationService;
@@ -37,6 +40,7 @@ public class UserService {
         this.refreshTokenRepository = refreshTokenRepository;
         this.consentService = consentService;
         this.loginAttemptService = loginAttemptService;
+        this.piiCryptoService = piiCryptoService;
     }
 
     public boolean checkLoginIdAvailable(String loginId) {
@@ -53,13 +57,14 @@ public class UserService {
             throw new CustomException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmailHash(piiCryptoService.hashForSearch(request.getEmail()))) {
             throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
         }
 
         User user = User.builder()
                 .loginId(request.getLoginId())
                 .email(request.getEmail())
+                .emailHash(piiCryptoService.hashForSearch(request.getEmail()))
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
                 .provider(Provider.LOCAL)
@@ -73,7 +78,7 @@ public class UserService {
     }
 
     public void findIdSendCode(String email) {
-        User user = userRepository.findByEmail(email).orElse(null);
+        User user = userRepository.findByEmailHash(piiCryptoService.hashForSearch(email)).orElse(null);
         if (user == null || user.getLoginId() == null) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
@@ -84,7 +89,7 @@ public class UserService {
     public FindIdResponse findIdVerifyCode(String email, String code) {
         emailVerificationService.verifyCodeOnly(email, code);
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailHash(piiCryptoService.hashForSearch(email))
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         if (user.getLoginId() == null) {

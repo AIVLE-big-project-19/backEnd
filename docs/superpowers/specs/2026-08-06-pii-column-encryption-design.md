@@ -21,11 +21,16 @@
 필드 레벨에서 암/복호화를 투명하게 처리한다. 애플리케이션 코드(`user.getEmail()`, `user.getName()`, `UserService`, `AuthService` 등)는 지금처럼 평문 문자열을 다루고, DB에 쓰고 읽는 시점에만 자동 변환된다. 서비스/컨트롤러 코드는 수정하지 않는다.
 
 - 암호화 알고리즘: AES-256-GCM (IV는 매 암호화마다 랜덤 생성, 암호문 앞에 붙여 저장)
-- 키: 환경변수로 관리, 기존 `JWT_SECRET`과 동일한 패턴
-  ```yaml
-  pii:
-    encryption-key: ${PII_ENCRYPTION_KEY:this-is-a-dev-only-key-please-override-32bytes-min}
-  ```
+- 키: 환경변수 `PII_ENCRYPTION_KEY`로 관리, 기존 `JWT_SECRET`과 동일한 이름 규칙
+
+**구현 중 변경된 부분**: 처음엔 `JwtProvider`처럼 `@Value("${pii.encryption-key}")`로 Spring이 주입하게 설계했지만, `@DataJpaTest` 슬라이스 컨텍스트는 일반 `@Component`(`PiiCryptoService`)를 스캔하지 않아서 Hibernate가 컨버터를 초기화하는 시점에 `BeanCreationException`이 났다(`BoardRepositoryTest`, `CommentRepositoryTest`, `UserConsentRepositoryTest`, `WithdrawalServiceIntegrationTest`에서 재현). JPA 컨버터는 Hibernate가 Spring 컨텍스트 범위와 무관하게 직접 인스턴스화하므로, Spring DI에 의존하지 않는 편이 근본적으로 안전하다.
+
+그래서 실제 구조는 3단으로 나뉜다:
+- `PiiCipher` (package-private, static): 실제 AES-256-GCM/HMAC-SHA256 로직. 키는 `System.getProperty("PII_ENCRYPTION_KEY")` → `System.getenv("PII_ENCRYPTION_KEY")` → dev 기본값 순으로 직접 읽는다 (`HashUtil`과 동일한 무-DI 스타일).
+- `PiiCryptoConverter` (`@Converter`, Spring 빈 아님): Hibernate가 어떤 컨텍스트에서도 `new`로 만들 수 있도록 `PiiCipher`를 직접 호출.
+- `PiiCryptoService` (`@Component`): `PiiCipher`를 감싸는 얇은 래퍼. `UserService`/`AuthService`에 주입해서 유닛테스트에서 모킹하기 위한 용도.
+
+`application.yaml`에는 별도 프로퍼티를 두지 않는다(어차피 안 읽으므로). `DemoApplication`의 dotenv 로딩에 `PII_ENCRYPTION_KEY`를 추가해 로컬 개발 시 `.env`로 지정할 수 있게 한다.
 
 ### `name`: 단순 암호화
 - `NameCryptoConverter implements AttributeConverter<String, String>` 하나만 붙인다.
@@ -44,18 +49,20 @@
 
 ### 엔티티 변경 (`User.java`)
 ```java
-@Convert(converter = EmailCryptoConverter.class)
+@Convert(converter = PiiCryptoConverter.class)
 @Column(nullable = false, length = 255)   // 암호문이 평문보다 길어지므로 length 상향
 private String email;
 
-@Column(nullable = false, unique = true, length = 64)
+@Column(unique = true, length = 64)   // nullable — 기존 테스트 데이터/DataJpaTest 픽스처는 emailHash 없이도 저장 가능해야 함
 private String emailHash;
 
-@Convert(converter = NameCryptoConverter.class)
+@Convert(converter = PiiCryptoConverter.class)
 @Column(nullable = false, length = 255)
 private String name;
 ```
-`email`/`name` 컬럼 length는 암호문 길이(Base64 인코딩된 IV+ciphertext)를 감안해 넉넉히 늘린다.
+`email`/`name` 컬럼 length는 암호문 길이(Base64 인코딩된 IV+ciphertext)를 감안해 넉넉히 늘린다. `EmailCryptoConverter`/`NameCryptoConverter`로 나누려 했으나 로직이 완전히 동일해서 `PiiCryptoConverter` 하나로 통합했다(둘 다 이 컨버터를 붙임).
+
+`emailHash`는 `nullable = false`가 아니라 nullable로 뒀다 — `WithdrawalServiceIntegrationTest`, `UserConsentRepositoryTest` 등 기존 `@DataJpaTest` 픽스처가 `emailHash` 없이 `User.builder()`로 직접 저장하고 있어서, NOT NULL로 걸면 그 테스트들을 전부 고쳐야 했다. unique 컬럼에서 NULL은 여러 개 허용되므로(H2/MySQL 공통) 제약 위반 없이 공존 가능하다.
 
 ## 데이터 흐름
 - **회원가입**: `UserService.signup()` → `User` 빌드 시 `emailHash = EmailHasher.hash(email)`도 함께 설정 → JPA 저장 시 컨버터가 `email`/`name`을 암호화. 중복 체크는 `existsByEmailHash(EmailHasher.hash(email))`로 수행.

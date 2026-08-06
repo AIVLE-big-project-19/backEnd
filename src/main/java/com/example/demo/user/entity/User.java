@@ -1,5 +1,6 @@
 package com.example.demo.user.entity;
 
+import com.example.demo.global.crypto.PiiCryptoConverter;
 import com.example.demo.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -20,13 +21,20 @@ public class User extends BaseEntity {
     @Column(unique = true, length = 50)
     private String loginId;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Convert(converter = PiiCryptoConverter.class)
+    @Column(nullable = false, length = 255)
     private String email;
+
+    // email의 암호문은 저장할 때마다 달라져 email 컬럼으로는 정확 일치 조회가 불가능하다.
+    // 검색(중복확인/로그인)은 이 해시 컬럼으로 한다.
+    @Column(unique = true, length = 64)
+    private String emailHash;
 
     @Column(length = 100)
     private String password;
 
-    @Column(nullable = false, length = 30)
+    @Convert(converter = PiiCryptoConverter.class)
+    @Column(nullable = false, length = 255)
     private String name;
 
     @Enumerated(EnumType.STRING)
