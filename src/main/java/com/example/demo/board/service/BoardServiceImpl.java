@@ -50,6 +50,9 @@ public class BoardServiceImpl implements BoardService {
     @Value("${app.admin-email}")
     private String adminEmail;
 
+    @Value("${spring.mail.username}")
+    private String mailUsername;
+
     @Override
     public BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin) {
         return createBoard(request, List.of(), userId, isAdmin);
@@ -86,6 +89,7 @@ public class BoardServiceImpl implements BoardService {
 
     private void notifyAdminOfNewInquiry(Board board) {
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("SolarAivle <" + mailUsername + ">");
         message.setTo(adminEmail.split("\\s*,\\s*"));
         message.setSubject("[1:1문의] " + board.getTitle());
         message.setText(resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent());
