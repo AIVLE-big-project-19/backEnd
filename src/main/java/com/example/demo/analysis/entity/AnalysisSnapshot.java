@@ -68,6 +68,12 @@ public class AnalysisSnapshot extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String status;
 
+
+    private Integer totalScore;
+
+    @Column(length = 5)
+    private String grade;
+
     public void cachePdf(byte[] pdfBytes) {
         this.pdfBytes = pdfBytes;
     }
