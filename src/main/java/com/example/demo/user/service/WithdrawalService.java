@@ -1,9 +1,12 @@
 package com.example.demo.user.service;
 
+import com.example.demo.analysis.repository.AnalysisSnapshotRepository;
 import com.example.demo.board.repository.BoardRepository;
 import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.dashboard.repository.SiteAnalysisRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.notification.repository.NotificationRepository;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.RefreshTokenRepository;
@@ -23,6 +26,9 @@ public class WithdrawalService {
     private final BoardRepository boardRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserConsentRepository userConsentRepository;
+    private final NotificationRepository notificationRepository;
+    private final AnalysisSnapshotRepository analysisSnapshotRepository;
+    private final SiteAnalysisRepository siteAnalysisRepository;
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService loginAttemptService;
     private final EmailVerificationService emailVerificationService;
@@ -33,6 +39,9 @@ public class WithdrawalService {
             BoardRepository boardRepository,
             RefreshTokenRepository refreshTokenRepository,
             UserConsentRepository userConsentRepository,
+            NotificationRepository notificationRepository,
+            AnalysisSnapshotRepository analysisSnapshotRepository,
+            SiteAnalysisRepository siteAnalysisRepository,
             PasswordEncoder passwordEncoder,
             LoginAttemptService loginAttemptService,
             EmailVerificationService emailVerificationService
@@ -42,6 +51,9 @@ public class WithdrawalService {
         this.boardRepository = boardRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.userConsentRepository = userConsentRepository;
+        this.notificationRepository = notificationRepository;
+        this.analysisSnapshotRepository = analysisSnapshotRepository;
+        this.siteAnalysisRepository = siteAnalysisRepository;
         this.passwordEncoder = passwordEncoder;
         this.loginAttemptService = loginAttemptService;
         this.emailVerificationService = emailVerificationService;
@@ -65,6 +77,9 @@ public class WithdrawalService {
 
         refreshTokenRepository.deleteByUser(user);
         userConsentRepository.deleteByUser(user);
+        notificationRepository.deleteAllByRecipientId(userId);
+        analysisSnapshotRepository.deleteByUser(user);
+        siteAnalysisRepository.deleteByUser(user);
 
         String email = user.getEmail();
         userRepository.delete(user);
