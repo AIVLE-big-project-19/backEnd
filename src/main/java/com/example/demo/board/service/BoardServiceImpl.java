@@ -30,6 +30,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +41,27 @@ public class BoardServiceImpl implements BoardService {
     private static final int MAX_ATTACHMENT_COUNT = 10;
     private static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
     private static final long MAX_TOTAL_ATTACHMENT_SIZE = 50L * 1024 * 1024;
+
+
+    private static final Map<String, String> ALLOWED_ATTACHMENT_EXTENSIONS = Map.ofEntries(
+            Map.entry("jpg", "image/jpeg"),
+            Map.entry("jpeg", "image/jpeg"),
+            Map.entry("png", "image/png"),
+            Map.entry("gif", "image/gif"),
+            Map.entry("webp", "image/webp"),
+            Map.entry("pdf", "application/pdf"),
+            Map.entry("doc", "application/msword"),
+            Map.entry("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            Map.entry("xls", "application/vnd.ms-excel"),
+            Map.entry("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            Map.entry("ppt", "application/vnd.ms-powerpoint"),
+            Map.entry("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+            Map.entry("hwp", "application/x-hwp"),
+            Map.entry("hwpx", "application/haansofthwp"),
+            Map.entry("txt", "text/plain"),
+            Map.entry("csv", "text/csv"),
+            Map.entry("zip", "application/zip")
+    );
 
     private static final String NOTICE = "공지사항";
     private static final String FAQ = "FAQ";
@@ -345,12 +367,11 @@ public class BoardServiceImpl implements BoardService {
         try {
             for (MultipartFile file : files) {
                 if (file == null || file.isEmpty()) continue;
-                String contentType = file.getContentType();
-                if (contentType == null || contentType.isBlank()) contentType = "application/octet-stream";
                 String originalFilename = file.getOriginalFilename();
                 if (originalFilename == null || originalFilename.isBlank() || file.getSize() > MAX_FILE_SIZE) {
                     throw new CustomException(ErrorCode.INVALID_INPUT);
                 }
+                String contentType = resolveAllowedContentType(originalFilename);
                 String objectKey = boardFileStorage.upload(file, contentType);
                 uploadedKeys.add(objectKey);
                 BoardAttachment attachment = boardAttachmentRepository.save(BoardAttachment.builder()
@@ -384,6 +405,7 @@ public class BoardServiceImpl implements BoardService {
             if (file.getOriginalFilename() == null || file.getOriginalFilename().isBlank() || file.getSize() > MAX_FILE_SIZE) {
                 throw new CustomException(ErrorCode.INVALID_INPUT);
             }
+            resolveAllowedContentType(file.getOriginalFilename());
         }
         List<Long> deletedIds = deletedAttachmentIds == null ? List.of() : deletedAttachmentIds;
         long existingSize = board.getAttachments().stream()
@@ -396,6 +418,17 @@ public class BoardServiceImpl implements BoardService {
         if (existingCount + newFiles.size() > MAX_ATTACHMENT_COUNT || existingSize + newSize > MAX_TOTAL_ATTACHMENT_SIZE) {
             throw new CustomException(ErrorCode.INVALID_INPUT);
         }
+    }
+
+    private String resolveAllowedContentType(String originalFilename) {
+        int dot = originalFilename.lastIndexOf('.');
+        String extension = (dot < 0 || dot == originalFilename.length() - 1)
+                ? "" : originalFilename.substring(dot + 1).toLowerCase();
+        String contentType = ALLOWED_ATTACHMENT_EXTENSIONS.get(extension);
+        if (contentType == null) {
+            throw new CustomException(ErrorCode.ATTACHMENT_TYPE_NOT_ALLOWED);
+        }
+        return contentType;
     }
 
     private void deleteStoredFile(String storedFilename) {
