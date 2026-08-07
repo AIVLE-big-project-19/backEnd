@@ -1,10 +1,16 @@
 package com.example.demo.user.service;
 
+import com.example.demo.analysis.entity.AnalysisSnapshot;
+import com.example.demo.analysis.repository.AnalysisSnapshotRepository;
 import com.example.demo.board.entity.Board;
 import com.example.demo.board.repository.BoardRepository;
 import com.example.demo.comment.entity.Comment;
 import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.dashboard.entity.SiteAnalysis;
+import com.example.demo.dashboard.repository.SiteAnalysisRepository;
 import com.example.demo.global.config.JpaAuditingConfig;
+import com.example.demo.notification.entity.Notification;
+import com.example.demo.notification.repository.NotificationRepository;
 import com.example.demo.user.entity.ConsentType;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.RefreshToken;
@@ -59,6 +65,15 @@ class WithdrawalServiceIntegrationTest {
     @Autowired
     private UserConsentRepository userConsentRepository;
 
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private AnalysisSnapshotRepository analysisSnapshotRepository;
+
+    @Autowired
+    private SiteAnalysisRepository siteAnalysisRepository;
+
     private WithdrawalService withdrawalService;
 
     @BeforeEach
@@ -69,6 +84,9 @@ class WithdrawalServiceIntegrationTest {
                 boardRepository,
                 refreshTokenRepository,
                 userConsentRepository,
+                notificationRepository,
+                analysisSnapshotRepository,
+                siteAnalysisRepository,
                 new BCryptPasswordEncoder(),
                 mock(LoginAttemptService.class),
                 mock(EmailVerificationService.class)
@@ -141,6 +159,29 @@ class WithdrawalServiceIntegrationTest {
                 .content("남의 댓글")
                 .build());
 
+        notificationRepository.save(Notification.builder()
+                .recipient(withdrawing)
+                .type("NOTICE")
+                .title("공지")
+                .message("내용")
+                .link("/boards/1")
+                .build());
+
+        analysisSnapshotRepository.save(AnalysisSnapshot.builder()
+                .user(withdrawing)
+                .address("서울시 강남구")
+                .analysisJson("{}")
+                .responseJson("{}")
+                .favorite(false)
+                .status("DONE")
+                .build());
+
+        siteAnalysisRepository.save(SiteAnalysis.builder()
+                .user(withdrawing)
+                .address("서울시 강남구")
+                .demoData(false)
+                .build());
+
         assertThatCode(() -> withdrawalService.withdraw(withdrawing.getId(), RAW_PASSWORD))
                 .doesNotThrowAnyException();
 
@@ -150,6 +191,12 @@ class WithdrawalServiceIntegrationTest {
                 .noneMatch(rt -> rt.getUser().getId().equals(withdrawing.getId()));
         assertThat(userConsentRepository.findAll())
                 .noneMatch(uc -> uc.getUser().getId().equals(withdrawing.getId()));
+        assertThat(notificationRepository.findAll())
+                .noneMatch(n -> n.getRecipient().getId().equals(withdrawing.getId()));
+        assertThat(analysisSnapshotRepository.findAll())
+                .noneMatch(a -> a.getUser() != null && a.getUser().getId().equals(withdrawing.getId()));
+        assertThat(siteAnalysisRepository.findAll())
+                .noneMatch(s -> s.getUser() != null && s.getUser().getId().equals(withdrawing.getId()));
 
         Comment reloadedMyComment = commentRepository.findById(myComment.getCommentId()).orElseThrow();
         assertThat(reloadedMyComment.getWriter()).isEqualTo(ANONYMIZED_WRITER);

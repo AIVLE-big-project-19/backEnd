@@ -1,9 +1,12 @@
 package com.example.demo.user.service;
 
+import com.example.demo.analysis.repository.AnalysisSnapshotRepository;
 import com.example.demo.board.repository.BoardRepository;
 import com.example.demo.comment.repository.CommentRepository;
+import com.example.demo.dashboard.repository.SiteAnalysisRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.notification.repository.NotificationRepository;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
@@ -42,6 +45,15 @@ class WithdrawalServiceTest {
     private UserConsentRepository userConsentRepository;
 
     @Mock
+    private NotificationRepository notificationRepository;
+
+    @Mock
+    private AnalysisSnapshotRepository analysisSnapshotRepository;
+
+    @Mock
+    private SiteAnalysisRepository siteAnalysisRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -58,6 +70,7 @@ class WithdrawalServiceTest {
         withdrawalService = new WithdrawalService(
                 userRepository, commentRepository, boardRepository,
                 refreshTokenRepository, userConsentRepository,
+                notificationRepository, analysisSnapshotRepository, siteAnalysisRepository,
                 passwordEncoder, loginAttemptService, emailVerificationService
         );
     }
@@ -94,11 +107,15 @@ class WithdrawalServiceTest {
         withdrawalService.withdraw(1L, "password1!");
 
         InOrder inOrder = inOrder(commentRepository, boardRepository, refreshTokenRepository,
-                userConsentRepository, userRepository, loginAttemptService, emailVerificationService);
+                userConsentRepository, notificationRepository, analysisSnapshotRepository,
+                siteAnalysisRepository, userRepository, loginAttemptService, emailVerificationService);
         inOrder.verify(commentRepository).anonymizeByAuthor(user, "탈퇴한 사용자");
         inOrder.verify(boardRepository).replaceWriter("tester01", "탈퇴한 사용자");
         inOrder.verify(refreshTokenRepository).deleteByUser(user);
         inOrder.verify(userConsentRepository).deleteByUser(user);
+        inOrder.verify(notificationRepository).deleteAllByRecipientId(1L);
+        inOrder.verify(analysisSnapshotRepository).deleteByUser(user);
+        inOrder.verify(siteAnalysisRepository).deleteByUser(user);
         inOrder.verify(userRepository).delete(user);
         inOrder.verify(loginAttemptService).clearLockState("tester01");
         inOrder.verify(emailVerificationService).clearVerified("tester01@example.com");
@@ -145,10 +162,14 @@ class WithdrawalServiceTest {
         verify(loginAttemptService, never()).clearLockState(anyString());
 
         InOrder inOrder = inOrder(commentRepository, refreshTokenRepository,
-                userConsentRepository, userRepository, emailVerificationService);
+                userConsentRepository, notificationRepository, analysisSnapshotRepository,
+                siteAnalysisRepository, userRepository, emailVerificationService);
         inOrder.verify(commentRepository).anonymizeByAuthor(user, "탈퇴한 사용자");
         inOrder.verify(refreshTokenRepository).deleteByUser(user);
         inOrder.verify(userConsentRepository).deleteByUser(user);
+        inOrder.verify(notificationRepository).deleteAllByRecipientId(2L);
+        inOrder.verify(analysisSnapshotRepository).deleteByUser(user);
+        inOrder.verify(siteAnalysisRepository).deleteByUser(user);
         inOrder.verify(userRepository).delete(user);
         inOrder.verify(emailVerificationService).clearVerified("google@example.com");
     }
