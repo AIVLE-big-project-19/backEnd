@@ -102,9 +102,12 @@ public class BoardController {
     public ResponseEntity<byte[]> getAttachment(@PathVariable Long boardId, @PathVariable Long attachmentId,
                                                 Authentication authentication) {
         BoardService.BoardFile file = boardService.getAttachment(boardId, attachmentId, userId(authentication), isAdmin(authentication));
+        String disposition = file.contentType().startsWith("image/") ? "inline" : "attachment";
+        String safeFilename = file.originalFilename().replace("\"", "").replaceAll("[\\r\\n]", "");
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(file.contentType()))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + file.originalFilename().replace("\"", "") + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + safeFilename + "\"")
+                .header("X-Content-Type-Options", "nosniff")
                 .body(file.content());
     }
 
