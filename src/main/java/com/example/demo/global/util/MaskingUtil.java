@@ -11,4 +11,23 @@ public final class MaskingUtil {
         }
         return name.charAt(0) + "*".repeat(name.length() - 1);
     }
+
+    public static String maskEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex < 0) {
+            return email;
+        }
+
+        String localPart = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+
+        int visibleLength = localPart.length() >= 3 ? 3 : Math.min(1, localPart.length());
+        String visible = localPart.substring(0, visibleLength);
+        String masked = "*".repeat(localPart.length() - visibleLength);
+
+        return visible + masked + domain;
+    }
 }
