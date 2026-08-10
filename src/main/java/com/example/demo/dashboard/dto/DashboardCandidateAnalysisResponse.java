@@ -1,5 +1,9 @@
 package com.example.demo.dashboard.dto;
 
+import com.example.demo.report.dto.BusinessRoute;
+import com.example.demo.report.dto.RecommendedSubsidy;
+import com.example.demo.report.dto.RegulatoryAssessment;
+
 import java.util.List;
 
 public record DashboardCandidateAnalysisResponse(
@@ -27,6 +31,10 @@ public record DashboardCandidateAnalysisResponse(
         RoofAnalysis roofAnalysis,
         List<RiskItem> risks,
         List<ChecklistAction> checklist,
+        RegulatoryAssessment regulatoryAssessment,
+        BusinessRoute businessRoute,
+        List<RecommendedSubsidy> subsidyRecommendations,
+        String agentCaution,
         Long analysisId
 ) {
     public record CapacityEstimate(

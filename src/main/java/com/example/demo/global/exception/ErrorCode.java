@@ -40,7 +40,8 @@ public enum ErrorCode {
     IDLE_LAND_CSV_PARSE_FAILED(HttpStatus.BAD_REQUEST, "유휴부지 CSV 파일을 처리할 수 없습니다. 형식을 확인해주세요."),
     IDLE_LAND_NOT_FOUND(HttpStatus.NOT_FOUND, "유휴부지 후보지를 찾을 수 없습니다."),
     ML_SERVER_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "ML 서버 호출에 실패했습니다."),
-    VISION_ANALYSIS_FAILED(HttpStatus.BAD_GATEWAY, "Vision AI 분석에 실패했습니다.");
+    VISION_ANALYSIS_FAILED(HttpStatus.BAD_GATEWAY, "Vision AI 분석에 실패했습니다."),
+    POLICY_AGENT_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "정책·지원사업 추천 Agent 호출에 실패했습니다.");
 
     private final HttpStatus status;
     private final String message;
