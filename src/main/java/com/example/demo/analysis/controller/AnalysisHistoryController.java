@@ -43,6 +43,18 @@ public class AnalysisHistoryController {
         return ApiResponse.success(SuccessCode.BOARD_FOUND);
     }
 
+    @DeleteMapping
+    public ApiResponse<Void> deleteSelected(@RequestBody DeleteRequest request) {
+        analysisSnapshotService.deleteSelected(request.analysisIds(), currentUserId());
+        return ApiResponse.success(SuccessCode.BOARD_FOUND);
+    }
+
+    @DeleteMapping("/all")
+    public ApiResponse<Void> deleteAll() {
+        analysisSnapshotService.deleteAll(currentUserId());
+        return ApiResponse.success(SuccessCode.BOARD_FOUND);
+    }
+
     private Long currentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Object principal = authentication == null ? null : authentication.getPrincipal();
@@ -50,4 +62,6 @@ public class AnalysisHistoryController {
     }
 
     public record ManagementRequest(boolean favorite, String status) {}
+
+    public record DeleteRequest(List<Long> analysisIds) {}
 }
