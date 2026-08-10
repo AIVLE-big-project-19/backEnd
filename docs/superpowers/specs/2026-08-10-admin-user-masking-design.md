@@ -34,7 +34,7 @@
 - `null`/빈 문자열 → 그대로 반환
 - 1글자 → 그대로 반환 (가릴 게 없음)
 - 2글자 이상 → 첫 글자 + `*` × (전체 길이 - 1)
-  - 예: `한승연` → `한**`, `이도` → `이*`, `z z` → `z***`
+  - 예: `한승연` → `한**`, `이도` → `이*`, `z z` → `z**`
 
 ### 이메일 (`MaskingUtil.maskEmail`)
 - `null`/`@` 없는 값 → 그대로 반환 (방어적 처리)
@@ -53,7 +53,7 @@
 
 | 파일 | 변경 |
 |---|---|
-| `user/util/MaskingUtil.java` (신규) | `maskName(String)`, `maskEmail(String)` 정적 메서드 |
+| `global/util/MaskingUtil.java` (신규) | `maskName(String)`, `maskEmail(String)` 정적 메서드 (`HashUtil`과 같은 패키지) |
 | `user/dto/AdminUserResponse.java` | `from(User)`에서 `name`/`email` 대입 시 `MaskingUtil` 호출로 변경 |
 | 프론트 | 변경 없음 |
 
