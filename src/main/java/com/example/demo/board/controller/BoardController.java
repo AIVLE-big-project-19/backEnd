@@ -74,6 +74,16 @@ public class BoardController {
 
     }
 
+    @PatchMapping("/{boardId}/pin")
+    public ApiResponse<BoardResponse> togglePinned(
+            @PathVariable Long boardId,
+            Authentication authentication) {
+        return ApiResponse.success(
+                SuccessCode.BOARD_UPDATED,
+                boardService.togglePinned(boardId, isAdmin(authentication))
+        );
+    }
+
     @PutMapping(value = "/{boardId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ApiResponse<BoardResponse> updateBoard(
             @PathVariable Long boardId,

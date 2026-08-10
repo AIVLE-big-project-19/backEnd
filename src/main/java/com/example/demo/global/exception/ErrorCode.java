@@ -16,6 +16,8 @@ public enum ErrorCode {
     COMMENTS_NOT_ALLOWED(HttpStatus.FORBIDDEN, "이 카테고리에서는 댓글을 사용할 수 없습니다."),
     INQUIRY_COMMENT_ADMIN_ONLY(HttpStatus.FORBIDDEN, "1:1 문의의 댓글은 관리자만 작성, 수정 또는 삭제할 수 있습니다."),
     NOTICE_ADMIN_ONLY(HttpStatus.FORBIDDEN, "공지사항은 관리자만 작성하거나 수정할 수 있습니다."),
+    NOTICE_PIN_ADMIN_ONLY(HttpStatus.FORBIDDEN, "공지사항 고정은 관리자만 사용할 수 있습니다."),
+    NOTICE_PIN_ONLY(HttpStatus.BAD_REQUEST, "공지사항만 고정할 수 있습니다."),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "댓글을 찾을 수 없습니다."),
     INVALID_INPUT(HttpStatus.BAD_REQUEST, "입력값이 올바르지 않습니다."),
     ATTACHMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "첨부파일을 찾을 수 없습니다."),

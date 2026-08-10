@@ -120,7 +120,11 @@ public class BoardServiceImpl implements BoardService {
         Pageable newestFirst = PageRequest.of(
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "createdAt")
+                noticeCategory(category)
+                        ? Sort.by(Sort.Direction.DESC, "pinned")
+                            .and(Sort.by(Sort.Direction.DESC, "pinnedAt"))
+                            .and(Sort.by(Sort.Direction.DESC, "createdAt"))
+                        : Sort.by(Sort.Direction.DESC, "createdAt")
         );
 
         Page<Board> boards;
@@ -138,6 +142,21 @@ public class BoardServiceImpl implements BoardService {
         }
 
         return PageResponse.from(boards.map(board -> entityToResponse(board, userId)));
+    }
+
+    @Override
+    @Transactional
+    public BoardResponse togglePinned(Long boardId, boolean isAdmin) {
+        if (!isAdmin) {
+            throw new CustomException(ErrorCode.NOTICE_PIN_ADMIN_ONLY);
+        }
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new CustomException(ErrorCode.BOARD_NOT_FOUND));
+        if (!noticeCategory(board.getCategory())) {
+            throw new CustomException(ErrorCode.NOTICE_PIN_ONLY);
+        }
+        board.togglePinned();
+        return entityToResponse(boardRepository.save(board), null);
     }
 
     @Override
@@ -231,6 +250,10 @@ public class BoardServiceImpl implements BoardService {
         return NOTICE.equals(category) || FAQ.equals(category);
     }
 
+    private boolean noticeCategory(String category) {
+        return NOTICE.equals(category);
+    }
+
     private boolean isInquiry(Board board) {
         return INQUIRY.equals(board.getCategory());
     }
@@ -270,6 +293,7 @@ public class BoardServiceImpl implements BoardService {
                 .owner(viewerId != null && isOwner(board, viewerId))
                 .category(board.getCategory())
                 .viewCount(board.getViewCount())
+                .pinned(Boolean.TRUE.equals(board.getPinned()))
                 .createdAt(board.getCreatedAt())
                 .updatedAt(board.getUpdatedAt())
                 .attachments(board.getAttachments().stream().map(attachment -> BoardAttachmentResponse.builder()

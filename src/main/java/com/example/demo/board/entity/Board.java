@@ -45,6 +45,17 @@ public class Board extends BaseEntity {
     @Column(nullable = false)
     private Integer viewCount = 0;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean pinned = false;
+
+    private LocalDateTime pinnedAt;
+
+    public void togglePinned() {
+        this.pinned = !Boolean.TRUE.equals(this.pinned);
+        this.pinnedAt = Boolean.TRUE.equals(this.pinned) ? LocalDateTime.now() : null;
+    }
+
     public void update(String title,
                        String content,
                        String category){
