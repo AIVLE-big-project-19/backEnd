@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -77,6 +78,28 @@ public class AnalysisSnapshotService {
     @Transactional
     public void delete(Long snapshotId, Long userId) {
         snapshotRepository.delete(findOwned(snapshotId, userId));
+    }
+
+    @Transactional
+    public void deleteSelected(List<Long> snapshotIds, Long userId) {
+        List<Long> ids = snapshotIds == null ? List.of() : snapshotIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+
+        List<AnalysisSnapshot> snapshots = snapshotRepository.findAllByIdInAndUserId(ids, userId);
+        if (snapshots.size() != ids.size()) {
+            throw new CustomException(ErrorCode.BOARD_ACCESS_DENIED);
+        }
+        snapshotRepository.deleteAll(snapshots);
+    }
+
+    @Transactional
+    public void deleteAll(Long userId) {
+        snapshotRepository.deleteAllByUserId(userId);
     }
 
     private AnalysisSnapshot findOwned(Long snapshotId, Long userId) {
