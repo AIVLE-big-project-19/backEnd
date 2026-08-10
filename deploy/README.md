@@ -23,7 +23,7 @@
 - **NAT Gateway 없음** — Fargate 태스크와 ALB 모두 퍼블릭 서브넷에 위치, 비용 절감 목적. 인터넷 노출은 보안그룹으로만 제어됨(태스크는 ALB의 8080 포트만 허용).
 - **HTTPS는 CloudFront에서만 제공** — ALB 자체는 여전히 HTTP:80만 리스닝. 실제 사용자는 CloudFront 주소(`https://d1iuhepb03p42r.cloudfront.net`)로 접속해야 HTTPS 적용됨. ALB로 직접 접속하면 HTTP만 됨. 커스텀 도메인이 생기면 CloudFront에 Alternate Domain Name + ACM 인증서만 추가하면 됨(재구축 불필요).
 - **헬스체크 그레이스 기간 150초로 설정** — 이 앱이 Fargate(0.5 vCPU)에서 기동에 약 70초 걸려서, 그레이스 기간 없이는 ALB가 기동 중인 태스크를 unhealthy로 판단해 죽여버리는 문제가 있었음(최초 배포 시 실제로 발생, 그레이스 기간 추가로 해결).
-- **AI 서버 연동 미배포** — `AI_SERVER_URL`, `ML_SERVER_URL`, `VISION_AI_URL`은 전부 `localhost` 기본값 placeholder. 이번 배포 범위가 아니므로 해당 기능 호출 시에는 실패하지만 앱 기동 자체에는 영향 없음(런타임 호출 시점에만 실패).
+- **AI 서버 연동 상태** — `vision-ai`, `ranking-ml`, `chatbot`, `policy-agent` 4개 서비스는 모두 `solaraivle-cluster`에 내부 전용 ECS 서비스로 배포되어 Cloud Map(`solaraivle.internal`)으로 연결됨. `AI_SERVER_URL`만 여전히 `localhost` placeholder로 남아 있음(별도 작업 필요).
 - **DB_USERNAME=admin** — RDS 마스터 사용자. 프로덕션이라면 애플리케이션 전용 최소권한 사용자를 별도로 만드는 게 좋음(지금은 검증 단계라 마스터 계정 그대로 사용).
 
 ## 검증 결과
