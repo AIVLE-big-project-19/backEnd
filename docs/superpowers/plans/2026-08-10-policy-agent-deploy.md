@@ -651,22 +651,25 @@ jobs:
 
 **중요**: `container-name`은 `policy-agent`(Task 5 태스크 정의의 `containerDefinitions[0].name`)이고, `CONTAINER_NAME` env는 `describe-task-definition`에 넘길 패밀리명이라 `solaraivle-policy-agent`다. 이 둘은 값이 다르므로 backend의 `deploy.yml`을 그대로 복사하면 안 되고 위와 같이 분리해서 써야 한다.
 
-- [ ] **Step 2: 커밋 및 push**
+- [ ] **Step 2: 커밋, push, PR 생성 (Task 1의 Dockerfile 커밋도 같은 브랜치에 이미 있으므로 함께 포함됨)**
 
 ```bash
 cd "C:\Users\User\Desktop\AI_agent"
 git add .github/workflows/deploy.yml
 git commit -m "ci: ECS 자동 배포 워크플로 추가"
 git push origin infra/ecs-deploy
+gh pr create --repo AIVLE-big-project-19/AI_agent \
+  --base main --head infra/ecs-deploy \
+  --title "ECS Fargate 배포: Dockerfile + GitHub Actions 워크플로" \
+  --body "AI_agent를 solaraivle-cluster에 내부 전용 ECS Fargate 서비스로 배포하기 위한 Dockerfile과 CI/CD 워크플로 추가. Merge 시 main push 트리거로 실제 배포가 실행됨."
 ```
 
-- [ ] **Step 3: `main`으로 머지하여 워크플로 트리거**
+**여기서 멈춘다.** `main`에 머지하면 워크플로가 즉시 트리거되어 실제 프로덕션 배포가 실행된다 — PR을 생성한 뒤, 병합 여부는 사용자에게 명시적으로 확인받은 다음에만 진행한다(구현자 서브에이전트는 PR 생성까지만 하고 `DONE_WITH_CONCERNS`로 보고, 컨트롤러가 병합 확인을 받아 별도로 병합을 진행한다).
+
+- [ ] **Step 3: (사용자 확인 후) PR 병합하여 워크플로 트리거**
 
 ```bash
-git checkout main
-git pull origin main
-git merge infra/ecs-deploy --no-edit
-git push origin main
+gh pr merge --repo AIVLE-big-project-19/AI_agent infra/ecs-deploy --merge
 ```
 
 - [ ] **Step 4: GitHub Actions 실행 결과 확인**
