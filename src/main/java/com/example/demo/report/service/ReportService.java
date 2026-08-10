@@ -2,9 +2,13 @@ package com.example.demo.report.service;
 
 import com.example.demo.report.client.AiAnalysisClient;
 import com.example.demo.report.support.DummyAnalysisFixtures;
+import com.example.demo.report.dto.AgentExplanation;
 import com.example.demo.report.dto.AiAnalysisResponse;
+import com.example.demo.report.dto.BusinessRoute;
 import com.example.demo.report.dto.ChecklistItem;
 import com.example.demo.report.dto.DetailScores;
+import com.example.demo.report.dto.RecommendedSubsidy;
+import com.example.demo.report.dto.RegulatoryAssessment;
 import com.example.demo.report.dto.RiskAndSupport;
 import com.example.demo.report.dto.RiskCheck;
 import com.example.demo.report.dto.ScoresAndEvaluation;
@@ -287,16 +291,13 @@ public class ReportService {
         document.add(table);
     }
 
+    // Ranking_ML의 통합 파이프라인(analyze/vision-json)이 아직 값을 채워주지 않는 항목
+    // (지붕 구조, 음영 비율·면적, 식생 피복률, 진입로, 추천 방향·각도 등)은 항상 "-"만 나오므로
+    // 혼동을 주지 않도록 표에서 뺀다. 상류에서 값을 채워주기 시작하면 다시 추가하면 된다.
     private LinkedHashMap<String, String> roofVisionLabels() {
         LinkedHashMap<String, String> labels = new LinkedHashMap<>();
         labels.put("vision_candidate_type", "Vision AI 인식 유형");
         labels.put("vision_confidence_percent", "탐지 신뢰도");
-        labels.put("roof_structure_type", "지붕 형태 및 구조");
-        labels.put("roof_slope_deg", "지붕 경사도");
-        labels.put("obstacle_shading_ratio_percent", "장애물 / 음영 비율");
-        labels.put("obstacle_shading_area", "장애물 / 음영 면적");
-        labels.put("recommended_orientation", "추천 모듈 방향");
-        labels.put("recommended_tilt_angle_deg", "추천 설치 각도");
         return labels;
     }
 
@@ -306,11 +307,6 @@ public class ReportService {
         labels.put("vision_confidence_percent", "탐지 신뢰도");
         labels.put("slope_degree", "지형 경사도");
         labels.put("aspect_direction", "부지 방위");
-        labels.put("vegetation_coverage_percent", "식생 피복률");
-        labels.put("has_access_road", "진입로 확보 여부");
-        labels.put("access_road_width_m", "진입로 폭");
-        labels.put("recommended_orientation", "추천 모듈 방향");
-        labels.put("recommended_tilt_angle_deg", "추천 설치 각도");
         return labels;
     }
 
@@ -382,16 +378,74 @@ public class ReportService {
         if (risk != null) {
             addLabeledLine(document, font, boldFont, "전력 계통 연계", risk.getGridConnection());
             addLabeledLine(document, font, boldFont, "조례 및 법적 규제", risk.getRegulation());
-            addLabeledLine(document, font, boldFont, "주변 민원 가능성", risk.getPublicComplaint());
         }
+
+        addRegulatoryAssessment(document, font, boldFont, riskAndSupport.getRegulatoryAssessment());
+        addBusinessRoute(document, font, boldFont, riskAndSupport.getBusinessRoute());
 
         document.add(new Paragraph("추천 정부/지자체 연계 사업")
                 .setFont(boldFont).setFontSize(10.5f).setMarginTop(10).setMarginBottom(4));
-        List<String> subsidies = riskAndSupport.getRecommendedSubsidies();
-        if (subsidies != null) {
-            for (String subsidy : subsidies) {
-                document.add(new Paragraph("• " + subsidy).setFont(font).setFontSize(9.5f).setMarginLeft(10).setMarginBottom(2));
+        List<RecommendedSubsidy> recommendedPrograms = riskAndSupport.getRecommendedPrograms();
+        if (recommendedPrograms != null && !recommendedPrograms.isEmpty()) {
+            for (RecommendedSubsidy program : recommendedPrograms) {
+                addRecommendedSubsidy(document, font, boldFont, program);
             }
+        } else {
+            List<String> subsidies = riskAndSupport.getRecommendedSubsidies();
+            if (subsidies != null) {
+                for (String subsidy : subsidies) {
+                    document.add(new Paragraph("• " + subsidy).setFont(font).setFontSize(9.5f).setMarginLeft(10).setMarginBottom(2));
+                }
+            }
+        }
+
+        AgentExplanation explanation = riskAndSupport.getAgentExplanation();
+        if (explanation != null && explanation.getCaution() != null && !explanation.getCaution().isBlank()) {
+            document.add(new Paragraph("※ " + explanation.getCaution())
+                    .setFont(font).setFontSize(8.5f).setFontColor(new DeviceRgb(120, 126, 135))
+                    .setMarginTop(6));
+        }
+    }
+
+    private void addRegulatoryAssessment(Document document, PdfFont font, PdfFont boldFont, RegulatoryAssessment assessment) {
+        if (assessment == null) {
+            return;
+        }
+        document.add(new Paragraph("정책 Agent 규제판정")
+                .setFont(boldFont).setFontSize(10.5f).setMarginTop(10).setMarginBottom(4));
+        addLabeledLine(document, font, boldFont, "판정 결과", assessment.getFinalDecision());
+        addLabeledLine(document, font, boldFont, "판정 사유", assessment.getFinalReason());
+        if (Boolean.TRUE.equals(assessment.getSetbackViolation())) {
+            addLabeledLine(document, font, boldFont, "이격거리 위반", "예");
+        }
+        if (assessment.getDataGaps() != null && !assessment.getDataGaps().isEmpty()) {
+            addBulletList(document, font, boldFont, "확인 필요 정보", assessment.getDataGaps());
+        }
+    }
+
+    private void addBusinessRoute(Document document, PdfFont font, PdfFont boldFont, BusinessRoute route) {
+        if (route == null) {
+            return;
+        }
+        document.add(new Paragraph("사업 추진 경로")
+                .setFont(boldFont).setFontSize(10.5f).setMarginTop(10).setMarginBottom(4));
+        addLabeledLine(document, font, boldFont, "추진 경로", route.getRouteType());
+        addLabeledLine(document, font, boldFont, "선정 사유", route.getReason());
+    }
+
+    private void addRecommendedSubsidy(Document document, PdfFont font, PdfFont boldFont, RecommendedSubsidy program) {
+        document.add(new Paragraph()
+                .add(new Text("• " + safe(program.getProgramName())).setFont(boldFont))
+                .add(new Text(program.getStatus() != null ? " (" + program.getStatus() + ")" : "").setFont(font))
+                .setFontSize(9.5f).setMarginLeft(10).setMarginBottom(2));
+        if (program.getSummary() != null && !program.getSummary().isBlank()) {
+            document.add(new Paragraph(program.getSummary())
+                    .setFont(font).setFontSize(9.5f).setMarginLeft(18).setMarginBottom(2));
+        }
+        if (program.getRequiredChecks() != null && !program.getRequiredChecks().isEmpty()) {
+            document.add(new Paragraph("신청 전 확인사항: " + String.join(", ", program.getRequiredChecks()))
+                    .setFont(font).setFontSize(9).setFontColor(new DeviceRgb(120, 126, 135))
+                    .setMarginLeft(18).setMarginBottom(4));
         }
     }
 

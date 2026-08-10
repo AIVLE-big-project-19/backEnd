@@ -5,6 +5,7 @@ import com.example.demo.global.exception.ErrorCode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -21,6 +22,7 @@ import java.util.Map;
 
 // Vision AI(FastAPI) POST /predict를 호출해 세그멘테이션 결과(predictions)와
 // 폴리곤이 그려진 위성이미지(annotated_image, base64 PNG)를 받아온다.
+@Slf4j
 @Component
 public class VisionAiClient {
 
@@ -40,6 +42,8 @@ public class VisionAiClient {
     }
 
     public VisionPredictResponse predict(byte[] imageBytes, String extent3857) {
+        log.info("Vision AI 호출: url={}, extent3857={}, imageBytes={}", visionAiBaseUrl, extent3857, imageBytes.length);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
@@ -62,6 +66,7 @@ public class VisionAiClient {
             if (result == null) {
                 throw new CustomException(ErrorCode.VISION_ANALYSIS_FAILED, "Vision AI가 빈 응답을 반환했습니다.");
             }
+            log.info("Vision AI 응답: predictions={}", result.getPredictions());
             return result;
         } catch (CustomException e) {
             throw e;

@@ -75,7 +75,9 @@ public class DashboardCandidateAnalysisService {
                 dashboardResponse.economicAssumptions(),
                 dashboardResponse.annualGenerationKwh(), dashboardResponse.estimatedAnnualRevenue(), dashboardResponse.roiPercent(),
                 dashboardResponse.paybackPeriodYears(), dashboardResponse.generationForecast(), dashboardResponse.scores(),
-                dashboardResponse.roofAnalysis(), dashboardResponse.risks(), dashboardResponse.checklist(), analysisId
+                dashboardResponse.roofAnalysis(), dashboardResponse.risks(), dashboardResponse.checklist(),
+                dashboardResponse.regulatoryAssessment(), dashboardResponse.businessRoute(),
+                dashboardResponse.subsidyRecommendations(), dashboardResponse.agentCaution(), analysisId
         );
     }
 
@@ -146,6 +148,11 @@ public class DashboardCandidateAnalysisService {
                 roofAnalysis,
                 toRisks(analysis),
                 toChecklist(analysis.getPreInvestigationChecklist()),
+                analysis.getRiskAndSupport() == null ? null : analysis.getRiskAndSupport().getRegulatoryAssessment(),
+                analysis.getRiskAndSupport() == null ? null : analysis.getRiskAndSupport().getBusinessRoute(),
+                analysis.getRiskAndSupport() == null ? null : analysis.getRiskAndSupport().getRecommendedPrograms(),
+                analysis.getRiskAndSupport() == null || analysis.getRiskAndSupport().getAgentExplanation() == null
+                        ? null : analysis.getRiskAndSupport().getAgentExplanation().getCaution(),
                 null
         );
     }

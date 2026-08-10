@@ -26,7 +26,8 @@ public class Board extends BaseEntity {
     @Column(nullable = false, length = 100)
     private String title;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+
+    @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
 
     // 작성자_이후 수정 필요

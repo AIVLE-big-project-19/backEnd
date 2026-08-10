@@ -18,6 +18,8 @@ public class ScoresAndEvaluation {
 
     private String status;
 
+    private Suitability suitability;
+
     @JsonProperty("detail_scores")
     private DetailScores detailScores;
 

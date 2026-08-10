@@ -43,6 +43,7 @@ public class AnalysisSnapshotService {
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+            var evaluation = analysis.getScoresAndEvaluation();
             AnalysisSnapshot snapshot = AnalysisSnapshot.builder()
                     .user(user)
                     .sourceId(idleLand.getSourceId())
@@ -55,6 +56,8 @@ public class AnalysisSnapshotService {
                     .responseJson(objectMapper.writeValueAsString(dashboardResponse))
                     .favorite(false)
                     .status("REVIEWING")
+                    .totalScore(evaluation == null ? null : evaluation.getTotalScore())
+                    .grade(evaluation == null ? null : evaluation.getGrade())
                     .build();
             return snapshotRepository.save(snapshot).getId();
         } catch (JsonProcessingException exception) {
@@ -68,6 +71,36 @@ public class AnalysisSnapshotService {
                 .map(this::toHistoryItem)
                 .toList();
     }
+
+    // 관리자용: 전체 사용자의 분석 로그를 가볍게(무거운 analysisJson/responseJson 파싱 없이) 조회한다.
+    @Transactional(readOnly = true)
+    public List<AdminAnalysisLogItem> adminHistory() {
+        return snapshotRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(snapshot -> new AdminAnalysisLogItem(
+                        snapshot.getId(),
+                        snapshot.getUser() == null ? null : snapshot.getUser().getLoginId(),
+                        snapshot.getAddress(),
+                        snapshot.getSiteType(),
+                        snapshot.getTotalScore(),
+                        snapshot.getGrade(),
+                        snapshot.getCreatedAt(),
+                        snapshot.isFavorite(),
+                        snapshot.getStatus()
+                ))
+                .toList();
+    }
+
+    public record AdminAnalysisLogItem(
+            Long analysisId,
+            String loginId,
+            String address,
+            String siteType,
+            Integer totalScore,
+            String grade,
+            java.time.LocalDateTime analyzedAt,
+            boolean favorite,
+            String status
+    ) {}
 
     @Transactional
     public void updateManagement(Long snapshotId, Long userId, boolean favorite, String status) {

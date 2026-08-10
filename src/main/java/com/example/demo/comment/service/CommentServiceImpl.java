@@ -12,6 +12,10 @@ import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CommentServiceImpl implements CommentService {
 
+    private static final Logger log = LoggerFactory.getLogger(CommentServiceImpl.class);
+
     private static final String NOTICE = "공지사항";
     private static final String FAQ = "FAQ";
     private static final String INQUIRY = "1:1문의";
@@ -31,6 +37,9 @@ public class CommentServiceImpl implements CommentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final MailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String mailUsername;
 
     /**
      * 댓글 등록
@@ -76,10 +85,15 @@ public class CommentServiceImpl implements CommentService {
             return;
         }
         SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("SolarAivle <" + mailUsername + ">");
         message.setTo(writer.getEmail());
         message.setSubject("[1:1문의] 문의하신 글에 답변이 등록되었습니다");
         message.setText("\"" + board.getTitle() + "\" 문의에 답변이 등록되었습니다. 게시판에서 확인해주세요.");
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (MailException e) {
+            log.warn("답변 등록 알림 메일 발송 실패 (writer={})", writer.getEmail(), e);
+        }
     }
 
     /**

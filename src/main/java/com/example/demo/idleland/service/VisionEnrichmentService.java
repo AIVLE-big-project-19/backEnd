@@ -1,28 +1,38 @@
 package com.example.demo.idleland.service;
 
 import com.example.demo.idleland.client.MlScoringClient;
+import com.example.demo.idleland.client.PolicyAgentClient;
 import com.example.demo.idleland.client.VWorldImageClient;
 import com.example.demo.idleland.client.VisionAiClient;
 import com.example.demo.idleland.entity.IdleLand;
+import com.example.demo.report.dto.AgentExplanation;
 import com.example.demo.report.dto.AiAnalysisResponse;
+import com.example.demo.report.dto.BusinessRoute;
 import com.example.demo.report.dto.DetailScores;
+import com.example.demo.report.dto.RecommendedSubsidy;
+import com.example.demo.report.dto.RegulatoryAssessment;
+import com.example.demo.report.dto.RiskAndSupport;
+import com.example.demo.report.dto.RiskCheck;
 import com.example.demo.report.dto.SiteInfo;
 import com.example.demo.report.dto.Simulation;
+import com.example.demo.report.dto.Suitability;
 import com.example.demo.report.dto.VisionAiSimulation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 // IdleLand 좌표 기준으로 VWorld 위성이미지 -> Vision AI -> ML(면적 가중 통합) 순으로 호출해
-// AiAnalysisResponse의 부지 면적/점수/Vision 시뮬레이션 값을 실측 기반으로 보강한다.
+// AiAnalysisResponse의 부지 면적/점수/Vision 시뮬레이션 값을 실측 기반으로 보강하고,
+// 이어서 정책·자금지원 추천 Agent(AI_agent)를 호출해 4_risk_and_support를 보강한다.
 // IdleLandReportService, DashboardCandidateAnalysisService, AnalysisSnapshotService가 공유해서 쓰던
 // 거의 동일한 로직이 각자 따로 복붙돼 있던 걸 여기로 모았다.
 // 성공하면 SHAP 기반 점수/추천·감점 이유는 그대로 두고 면적 가중 점수와 실제 탐지 이미지만 덮어쓴다.
-// 실패해도 예외를 던지지 않고 조용히 원래 값을 유지한다.
+// 각 단계는 실패해도 예외를 던지지 않고 조용히 원래 값을 유지한다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -31,8 +41,14 @@ public class VisionEnrichmentService {
     private final VWorldImageClient vWorldImageClient;
     private final VisionAiClient visionAiClient;
     private final MlScoringClient mlScoringClient;
+    private final PolicyAgentClient policyAgentClient;
 
     public void enrich(IdleLand idleLand, AiAnalysisResponse target) {
+        enrichFromVision(idleLand, target);
+        enrichFromPolicyAgent(idleLand, target);
+    }
+
+    private void enrichFromVision(IdleLand idleLand, AiAnalysisResponse target) {
         if (idleLand.getLongitude() == null || idleLand.getLatitude() == null) {
             log.warn("유휴부지 id={} 위경도 정보가 없어 Vision 분석을 건너뜁니다.", idleLand.getId());
             return;
@@ -66,6 +82,97 @@ public class VisionEnrichmentService {
         }
     }
 
+
+    @SuppressWarnings("unchecked")
+    private void enrichFromPolicyAgent(IdleLand idleLand, AiAnalysisResponse target) {
+        RiskAndSupport riskAndSupport = target.getRiskAndSupport();
+        if (riskAndSupport == null) {
+            riskAndSupport = new RiskAndSupport();
+            target.setRiskAndSupport(riskAndSupport);
+        }
+
+        try {
+            Map<String, Object> response = policyAgentClient.analyze(target);
+            if (!(response.get("result") instanceof Map<?, ?> result)
+                    || !(result.get("4_risk_and_support") instanceof Map<?, ?> risk)) {
+                log.info("유휴부지 id={} 정책 Agent 응답에 4_risk_and_support가 없어 건너뜁니다.", idleLand.getId());
+                return;
+            }
+            mergePolicyAgentResult(riskAndSupport, risk);
+        } catch (Exception exception) {
+            log.warn("유휴부지 id={} 정책 Agent 호출 실패, 기존 값을 유지합니다: {}",
+                    idleLand.getId(), exception.getMessage());
+        }
+    }
+
+    private void mergePolicyAgentResult(RiskAndSupport riskAndSupport, Map<?, ?> risk) {
+        if (risk.get("regulatory_assessment") instanceof Map<?, ?> assessmentMap) {
+            RegulatoryAssessment assessment = new RegulatoryAssessment();
+            assessment.setFinalDecision(text(assessmentMap.get("final_decision")));
+            assessment.setFinalReason(text(assessmentMap.get("final_reason")));
+            assessment.setSetbackViolation(assessmentMap.get("setback_violation") instanceof Boolean bool ? bool : null);
+            assessment.setDataGaps(stringList(assessmentMap.get("data_gaps")));
+            riskAndSupport.setRegulatoryAssessment(assessment);
+        }
+
+        if (risk.get("business_route") instanceof Map<?, ?> routeMap) {
+            BusinessRoute route = new BusinessRoute();
+            route.setRouteType(text(routeMap.get("route_type")));
+            route.setReason(text(routeMap.get("reason")));
+            riskAndSupport.setBusinessRoute(route);
+        }
+
+        if (risk.get("recommended_subsidies") instanceof List<?> programs) {
+            List<RecommendedSubsidy> recommendedPrograms = new ArrayList<>();
+            for (Object item : programs) {
+                if (item instanceof Map<?, ?> programMap) {
+                    recommendedPrograms.add(toRecommendedSubsidy(programMap));
+                }
+            }
+            riskAndSupport.setRecommendedPrograms(recommendedPrograms);
+        }
+
+        if (risk.get("agent_explanation") instanceof Map<?, ?> explanationMap) {
+            AgentExplanation explanation = new AgentExplanation();
+            explanation.setCaution(text(explanationMap.get("caution")));
+            riskAndSupport.setAgentExplanation(explanation);
+        }
+    }
+
+    private RecommendedSubsidy toRecommendedSubsidy(Map<?, ?> programMap) {
+        RecommendedSubsidy subsidy = new RecommendedSubsidy();
+        subsidy.setProgramName(text(programMap.get("program_name")));
+        subsidy.setPriority(programMap.get("priority") instanceof Number number ? number.intValue() : null);
+        subsidy.setStatus(text(programMap.get("status")));
+        subsidy.setSummary(text(programMap.get("summary")));
+        subsidy.setSourceUrl(text(programMap.get("source_url")));
+        subsidy.setMatchStatus(text(programMap.get("match_status")));
+        subsidy.setSupportType(text(programMap.get("support_type")));
+        subsidy.setSupportSummary(text(programMap.get("support_summary")));
+        subsidy.setRepaymentSummary(text(programMap.get("repayment_summary")));
+        subsidy.setApplicationPeriod(text(programMap.get("application_period")));
+        subsidy.setReason(text(programMap.get("reason")));
+        subsidy.setRequiredChecks(stringList(programMap.get("required_checks")));
+        return subsidy;
+    }
+
+    private String text(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private List<String> stringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return null;
+        }
+        List<String> result = new ArrayList<>();
+        for (Object item : list) {
+            if (item != null) {
+                result.add(String.valueOf(item));
+            }
+        }
+        return result;
+    }
+
     @SuppressWarnings("unchecked")
     private void mergeVisionResult(AiAnalysisResponse target, Map<?, ?> result) {
         Object siteInfoObj = result.get("1_site_info");
@@ -93,9 +200,18 @@ public class VisionEnrichmentService {
                 detailScores.setRuleBasedScore(integer(detail.get("rule_based_score"), detailScores.getRuleBasedScore()));
             }
 
-            if (detailScores != null && scores.get("suitability") instanceof Map<?, ?> suitability
-                    && suitability.get("rule_message") instanceof String ruleMessage && !ruleMessage.isBlank()) {
-                detailScores.setRuleReason(ruleMessage);
+            if (scores.get("suitability") instanceof Map<?, ?> suitabilityMap) {
+                if (detailScores != null
+                        && suitabilityMap.get("rule_message") instanceof String ruleMessage && !ruleMessage.isBlank()) {
+                    detailScores.setRuleReason(ruleMessage);
+                }
+
+
+                Suitability suitability = new Suitability();
+                suitability.setRulePass(suitabilityMap.get("rule_pass") instanceof Boolean bool ? bool : null);
+                suitability.setRuleDecision(text(suitabilityMap.get("rule_decision")));
+                suitability.setRuleMessage(text(suitabilityMap.get("rule_message")));
+                target.getScoresAndEvaluation().setSuitability(suitability);
             }
         }
 
@@ -136,6 +252,15 @@ public class VisionEnrichmentService {
                 simulation.setAnnualRevenueKrw(longNumber(
                         simulationMap.get("annual_revenue_krw"), simulation.getAnnualRevenueKrw()
                 ));
+            }
+        }
+
+        if (target.getRiskAndSupport() != null
+                && result.get("4_risk_and_support") instanceof Map<?, ?> risk
+                && risk.get("rule_based_risk_check") instanceof Map<?, ?> riskCheckMap) {
+            RiskCheck riskCheck = target.getRiskAndSupport().getRuleBasedRiskCheck();
+            if (riskCheck != null && riskCheckMap.get("regulation") instanceof String regulation && !regulation.isBlank()) {
+                riskCheck.setRegulation(regulation);
             }
         }
     }
