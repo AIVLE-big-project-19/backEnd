@@ -24,6 +24,8 @@ public interface BoardService {
 
     PageResponse<BoardResponse> getBoards(Pageable pageable, String category, Long userId, boolean isAdmin);
 
+    BoardResponse togglePinned(Long boardId, boolean isAdmin);
+
     // 게시글 수정
     BoardResponse updateBoard(Long boardId, BoardRequest request, Long userId, boolean isAdmin);
 

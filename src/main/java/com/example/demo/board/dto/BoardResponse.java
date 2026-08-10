@@ -26,6 +26,8 @@ public class BoardResponse {
 
     private Integer viewCount;
 
+    private Boolean pinned;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
