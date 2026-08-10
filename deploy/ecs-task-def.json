@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "solaraivle-backend",
-      "image": "251917136397.dkr.ecr.ap-northeast-2.amazonaws.com/solaraivle-backend:v1",
+      "image": "251917136397.dkr.ecr.ap-northeast-2.amazonaws.com/solaraivle-backend:590dafeaad0bcee712018ae191a404f7d6085733",
       "portMappings": [
         {
           "containerPort": 8080,
@@ -23,10 +23,16 @@
         { "name": "REDIS_HOST", "value": "solaraivle-redis.0pvsp8.0001.apn2.cache.amazonaws.com" },
         { "name": "REDIS_PORT", "value": "6379" },
         { "name": "AI_SERVER_URL", "value": "http://localhost:9000" },
-        { "name": "ML_SERVER_URL", "value": "http://localhost:8002" },
+        { "name": "FASTAPI_URL", "value": "http://vision-ai.solaraivle.internal:8001" },
+        { "name": "ML_SERVER_URL", "value": "http://ranking-ml.solaraivle.internal:8002" },
+        { "name": "POLICY_AGENT_URL", "value": "http://policy-agent.solaraivle.internal:8003" },
+        { "name": "VITE_CHATBOT_PROXY_TARGET", "value": "http://localhost:8010" },
         { "name": "VISION_AI_URL", "value": "http://localhost:8001/api/v1/vision/shade-analysis" },
         { "name": "DEMO_DATA_ENABLED", "value": "false" },
-        { "name": "JPA_DDL_AUTO", "value": "update" }
+        { "name": "JPA_DDL_AUTO", "value": "update" },
+        { "name": "AWS_REGION", "value": "ap-northeast-2" },
+        { "name": "AWS_S3_BUCKET", "value": "solaraivle-uploads-251917136397-ap-northeast-2-an" },
+        { "name": "ADMIN_EMAIL", "value": "htmddus49@gmail.com, s64799496@gmail.com, chl123420@gmail.com, kimsihyun538@gmail.com" }
       ],
       "secrets": [
         { "name": "DB_PASSWORD", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:rds!db-66dc3722-d899-4e15-8191-d96b80fef766-LaTfwG:password::" },
@@ -36,7 +42,8 @@
         { "name": "MAIL_PASSWORD", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/mail-password-eOWckj" },
         { "name": "GOOGLE_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/google-client-id-4SJhRd" },
         { "name": "GOOGLE_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/google-client-secret-ziQXC7" },
-        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/openai-api-key-MNBI0m" }
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/openai-api-key-MNBI0m" },
+        { "name": "POLICY_AGENT_INTERNAL_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/policy-agent-internal-api-key-fPeAd5" }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
