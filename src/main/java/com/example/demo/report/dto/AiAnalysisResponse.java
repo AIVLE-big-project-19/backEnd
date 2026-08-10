@@ -30,6 +30,6 @@ public class AiAnalysisResponse {
 
     // Vision AI가 폴리곤을 그려 반환한 위성이미지(base64 PNG). ML 응답엔 없고,
     // 보고서 생성 시점에 IdleLandReportService가 채워 넣는다.
-    @JsonProperty("annotated_image_base64")
-    private String annotatedImageBase64;
+    @JsonProperty("final_visualization_image_base64")
+    private String finalVisualizationImageBase64;
 }

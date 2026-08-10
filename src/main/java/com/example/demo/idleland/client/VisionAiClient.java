@@ -37,8 +37,8 @@ public class VisionAiClient {
         // ML(/analyze/vision-json)로 그대로 전달할 원본 detection 목록.
         private List<Map<String, Object>> predictions;
 
-        @JsonProperty("annotated_image")
-        private String annotatedImage;
+        @JsonProperty("final_visualization_image")
+        private String finalVisualizationImage;
     }
 
     public VisionPredictResponse predict(byte[] imageBytes, String extent3857) {

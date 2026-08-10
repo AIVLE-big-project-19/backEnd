@@ -112,8 +112,8 @@ public class ReportService {
         }
 
         addSectionHeader(document, boldFont, "3. Vision AI 영상 분석 및 발전/수익성 시뮬레이션");
-        if (data.getAnnotatedImageBase64() != null && !data.getAnnotatedImageBase64().isBlank()) {
-            addAnnotatedImage(document, data.getAnnotatedImageBase64());
+        if (data.getFinalVisualizationImageBase64() != null && !data.getFinalVisualizationImageBase64().isBlank()) {
+            addFinalVisualizationImage(document, data.getFinalVisualizationImageBase64());
         }
         VisionAiSimulation visionAiSimulation = data.getVisionAiSimulation();
         if (visionAiSimulation != null) {
@@ -150,7 +150,7 @@ public class ReportService {
         }
     }
 
-    private void addAnnotatedImage(Document document, String base64Png) {
+    private void addFinalVisualizationImage(Document document, String base64Png) {
         try {
             byte[] imageBytes = Base64.getDecoder().decode(base64Png);
             Image image = new Image(ImageDataFactory.create(imageBytes))
@@ -166,7 +166,6 @@ public class ReportService {
     // 이미지에 칠해진 색이 각각 무엇을 뜻하는지 이미지 바로 아래에 간단히 표시한다.
     private void addVisionColorLegend(Document document) {
         Paragraph legend = new Paragraph().setFontSize(8.5f).setMarginBottom(10);
-        legend.add(new Text("색상 안내  ").setFontColor(new DeviceRgb(120, 126, 135)));
         addLegendItem(legend, VISION_COLOR_BUILDING, "건물");
         addLegendItem(legend, VISION_COLOR_LAND, "토지");
         addLegendItem(legend, VISION_COLOR_PARKING_LOT, "주차장");

@@ -59,9 +59,8 @@ public class VisionEnrichmentService {
                     vWorldImageClient.fetchImage(idleLand.getLongitude(), idleLand.getLatitude());
             VisionAiClient.VisionPredictResponse visionResult =
                     visionAiClient.predict(imageSource.imageBytes(), imageSource.extent3857());
-
             // 탐지 결과가 없어도 위성이미지 자체는 보고서에 보여줄 가치가 있으므로 먼저 반영해둔다.
-            target.setAnnotatedImageBase64(visionResult.getAnnotatedImage());
+            target.setFinalVisualizationImageBase64(visionResult.getFinalVisualizationImage());
 
             if (visionResult.getPredictions() == null || visionResult.getPredictions().isEmpty()) {
                 log.info("유휴부지 id={} Vision AI가 탐지한 후보가 없어 면적 가중 점수는 건너뜁니다.", idleLand.getId());
