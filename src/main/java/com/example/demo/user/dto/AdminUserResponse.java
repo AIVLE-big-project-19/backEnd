@@ -1,5 +1,6 @@
 package com.example.demo.user.dto;
 
+import com.example.demo.global.util.MaskingUtil;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
@@ -23,8 +24,8 @@ public class AdminUserResponse {
         return AdminUserResponse.builder()
                 .id(user.getId())
                 .loginId(user.getLoginId())
-                .email(user.getEmail())
-                .name(user.getName())
+                .email(MaskingUtil.maskEmail(user.getEmail()))
+                .name(MaskingUtil.maskName(user.getName()))
                 .provider(user.getProvider())
                 .role(user.getRole())
                 .createdAt(user.getCreatedAt())
