@@ -85,6 +85,11 @@ ml:
   server:
     # Ranking_ML FastAPI 서버 (유휴부지 예측·랭킹·SHAP)
     base-url: ${ML_SERVER_URL:http://localhost:8002}
+policy:
+  agent:
+    # 정책·자금지원 추천 AI Agent (AI_agent 레포) FastAPI 서버
+    base-url: ${POLICY_AGENT_URL:http://localhost:8003}
+    internal-api-key: ${POLICY_AGENT_INTERNAL_API_KEY:}
 pvgis:
   enabled: ${PVGIS_ENABLED:true}
   base-url: ${PVGIS_BASE_URL:https://re.jrc.ec.europa.eu/api/v5_3}

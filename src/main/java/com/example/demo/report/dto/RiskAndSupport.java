@@ -15,4 +15,10 @@ public class RiskAndSupport {
 
     @JsonProperty("recommended_subsidies")
     private List<String> recommendedSubsidies;
+
+
+    private RegulatoryAssessment regulatoryAssessment;
+    private BusinessRoute businessRoute;
+    private List<RecommendedSubsidy> recommendedPrograms;
+    private AgentExplanation agentExplanation;
 }
