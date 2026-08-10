@@ -14,7 +14,7 @@
 - **ECR**: `251917136397.dkr.ecr.ap-northeast-2.amazonaws.com/solaraivle-backend`
 - **Secrets Manager**: `solaraivle/jwt-secret`, `solaraivle/vworld-api-key`, `solaraivle/mail-username`, `solaraivle/mail-password`, `solaraivle/google-client-id`, `solaraivle/google-client-secret`, `solaraivle/openai-api-key`
 - **IAM**: `solaraivleEcsTaskExecutionRole`(ECR pull + CloudWatch Logs + 위 시크릿들 읽기), `solaraivleTaskRole`(권한 없음, placeholder)
-- **ECS**: 클러스터 `solaraivle-cluster`, 태스크 정의 `solaraivle-backend`(이 폴더의 `ecs-task-def.json`), 서비스 `solaraivle-backend-svc` (desired count 1, `healthCheckGracePeriodSeconds: 150`)
+- **ECS**: 클러스터 `solaraivle-cluster`, 태스크 정의 `solaraivle-backend`(이 폴더의 `ecs-task-def.json`), 서비스 `solaraivle-backend-svc` (desired count 0 — 의도적으로 스케일다운됨, 이번 작업 범위 밖, `healthCheckGracePeriodSeconds: 150`)
 - **ALB**: `solaraivle-alb` → `solaraivle-alb-1327052553.ap-northeast-2.elb.amazonaws.com` (HTTP:80) → 타깃그룹 `solaraivle-tg` (헬스체크 `/api/actuator/health`)
 - **CloudFront**: 배포 ID `E23LXWG7OGAIRR` → `https://d1iuhepb03p42r.cloudfront.net` — ALB(HTTP)를 오리진으로 두고 CloudFront가 HTTPS 종단 처리. 커스텀 도메인 없이 AWS 관리형 인증서로 무료 HTTPS 제공. 캐싱은 `CachingDisabled` 정책으로 꺼둠(API라 캐싱 의미 없음), 모든 메서드(GET/POST/PUT/PATCH/DELETE)와 헤더/쿠키/쿼리스트링은 `AllViewer` 오리진 요청 정책으로 그대로 오리진에 전달.
 
