@@ -8,6 +8,7 @@ import com.example.demo.comment.entity.Comment;
 import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.global.util.MaskingUtil;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
@@ -92,7 +93,7 @@ public class CommentServiceImpl implements CommentService {
         try {
             mailSender.send(message);
         } catch (MailException e) {
-            log.warn("답변 등록 알림 메일 발송 실패 (writer={})", writer.getEmail(), e);
+            log.warn("답변 등록 알림 메일 발송 실패 (writer={})", MaskingUtil.maskEmail(writer.getEmail()), e);
         }
     }
 
