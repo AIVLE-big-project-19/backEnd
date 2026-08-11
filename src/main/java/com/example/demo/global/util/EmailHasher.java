@@ -24,6 +24,9 @@ public final class EmailHasher {
     }
 
     public static String hash(String email) {
+        if (email == null) {
+            return null;
+        }
         String normalized = email.trim().toLowerCase(Locale.ROOT);
         try {
             Mac mac = Mac.getInstance(HMAC_ALGO);

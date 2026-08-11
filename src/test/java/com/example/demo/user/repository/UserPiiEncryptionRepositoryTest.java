@@ -5,6 +5,9 @@ import com.example.demo.global.util.EmailHasher;
 import com.example.demo.user.entity.Provider;
 import com.example.demo.user.entity.Role;
 import com.example.demo.user.entity.User;
+import com.example.demo.user.service.PiiMigrationService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -24,6 +27,9 @@ class UserPiiEncryptionRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Test
     void 저장한_이메일과_이름을_다시_읽으면_평문_그대로다() {
@@ -81,5 +87,38 @@ class UserPiiEncryptionRepositoryTest {
                 .build());
 
         assertThat(userRepository.findByEmailHashIsNull()).hasSize(1);
+    }
+
+    @Test
+    void 컨버터를_우회해_삽입한_레거시_평문_행이_마이그레이션_후_실제로_암호화된다() {
+        entityManager.createNativeQuery(
+                        "INSERT INTO users (login_id, email, email_hash, name, provider, role, created_at, updated_at) " +
+                                "VALUES (:loginId, :email, NULL, :name, 'LOCAL', 'USER', NOW(), NOW())")
+                .setParameter("loginId", "legacyuser01")
+                .setParameter("email", "legacy-plaintext@example.com")
+                .setParameter("name", "레거시평문유저")
+                .executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+
+        User legacy = userRepository.findAll().stream()
+                .filter(u -> "legacyuser01".equals(u.getLoginId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(legacy.getEmail()).isEqualTo("legacy-plaintext@example.com");
+        assertThat(legacy.getName()).isEqualTo("레거시평문유저");
+
+        new PiiMigrationService(userRepository).migratePendingUsers();
+        entityManager.flush();
+        entityManager.clear();
+
+        Object rawEmail = entityManager.createNativeQuery(
+                        "SELECT email FROM users WHERE login_id = :loginId")
+                .setParameter("loginId", "legacyuser01")
+                .getSingleResult();
+        assertThat((String) rawEmail).startsWith("ENC:");
+
+        User reloaded = userRepository.findById(legacy.getId()).orElseThrow();
+        assertThat(reloaded.getEmail()).isEqualTo("legacy-plaintext@example.com");
     }
 }
