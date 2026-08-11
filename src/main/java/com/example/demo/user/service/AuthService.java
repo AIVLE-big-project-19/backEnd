@@ -3,6 +3,7 @@ package com.example.demo.user.service;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.security.jwt.JwtProvider;
+import com.example.demo.global.util.EmailHasher;
 import com.example.demo.global.util.HashUtil;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.TokenResponse;
@@ -74,11 +75,12 @@ public class AuthService {
     public TokenResponse googleLogin(String code, String redirectUri) {
         GoogleUserInfo googleUserInfo = googleOAuthClient.fetchUserInfo(code, redirectUri);
 
-        User user = userRepository.findByEmail(googleUserInfo.getEmail()).orElse(null);
+        User user = userRepository.findByEmailHash(EmailHasher.hash(googleUserInfo.getEmail())).orElse(null);
 
         if (user == null) {
             User newUser = User.builder()
                     .email(googleUserInfo.getEmail())
+                    .emailHash(EmailHasher.hash(googleUserInfo.getEmail()))
                     .name(googleUserInfo.getName())
                     .provider(Provider.GOOGLE)
                     .providerId(googleUserInfo.getProviderId())

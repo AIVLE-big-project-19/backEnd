@@ -12,7 +12,7 @@
 - **RDS**: `solaraivle-db` (MySQL 8.0.42, db.t3.micro), 엔드포인트 `solaraivle-db.c7ek60soyfx9.ap-northeast-2.rds.amazonaws.com:3306`, 마스터 암호는 RDS 관리형 Secrets Manager 시크릿(`rds!db-66dc3722-...`)
 - **ElastiCache**: `solaraivle-redis` (Redis 7.1, cache.t3.micro), 엔드포인트 `solaraivle-redis.0pvsp8.0001.apn2.cache.amazonaws.com:6379`
 - **ECR**: `251917136397.dkr.ecr.ap-northeast-2.amazonaws.com/{solaraivle-backend, solaraivle-vision-ai, solaraivle-ranking-ml, solaraivle-chatbot, solaraivle-policy-agent}` (5개 리포지토리)
-- **Secrets Manager**: `solaraivle/jwt-secret`, `solaraivle/vworld-api-key`, `solaraivle/mail-username`, `solaraivle/mail-password`, `solaraivle/google-client-id`, `solaraivle/google-client-secret`, `solaraivle/openai-api-key`, `solaraivle/chatbot-database-url`, `solaraivle/policy-agent-internal-api-key`
+- **Secrets Manager**: `solaraivle/jwt-secret`, `solaraivle/vworld-api-key`, `solaraivle/mail-username`, `solaraivle/mail-password`, `solaraivle/google-client-id`, `solaraivle/google-client-secret`, `solaraivle/openai-api-key`, `solaraivle/chatbot-database-url`, `solaraivle/policy-agent-internal-api-key`, `solaraivle/pii-encryption-key`
 - **IAM**: `solaraivleEcsTaskExecutionRole`(ECR pull + CloudWatch Logs + 위 시크릿들 읽기), `solaraivleTaskRole`(S3 업로드 버킷 접근 정책 `solaraivle-uploads-251917136397-ap-northeast-2-an` 연결됨 — 더 이상 권한 없는 placeholder가 아님)
 - **ECS**: 클러스터 `solaraivle-cluster`, 태스크 정의 `solaraivle-backend`(이 폴더의 `ecs-task-def.json`), 서비스 `solaraivle-backend-svc` (desired count 0 — 의도적으로 스케일다운됨, 이번 작업 범위 밖, `healthCheckGracePeriodSeconds: 150`). 같은 클러스터에서 `solaraivle-vision-ai-svc`, `solaraivle-ranking-ml-svc`, `solaraivle-chatbot-svc`, `solaraivle-policy-agent-svc`도 함께 운영 중.
 - **ALB**: `solaraivle-alb` → `solaraivle-alb-1327052553.ap-northeast-2.elb.amazonaws.com` (HTTP:80) → 타깃그룹 `solaraivle-tg` (헬스체크 `/api/actuator/health`)
@@ -20,6 +20,7 @@
 
 ## 알아둘 점
 
+- **PII_ENCRYPTION_KEY**: AWS Secrets Manager `solaraivle/pii-encryption-key`로 생성 완료, `ecs-task-def.json`에 실제 ARN 연결됨(2026-08-11). 값이 비어있거나 잘못 설정되면 코드가 개발용 기본 키로 fallback해 DB 유출 시 실질적인 보호가 없어지니, 절대 삭제/변경하지 말 것 — 변경 시 이미 암호화된 기존 email/name을 전부 못 읽게 됨(재암호화 마이그레이션 필요).
 - **NAT Gateway 없음** — Fargate 태스크와 ALB 모두 퍼블릭 서브넷에 위치, 비용 절감 목적. 인터넷 노출은 보안그룹으로만 제어됨(태스크는 ALB의 8080 포트만 허용).
 - **HTTPS는 CloudFront에서만 제공** — ALB 자체는 여전히 HTTP:80만 리스닝. 실제 사용자는 CloudFront 주소(`https://d1iuhepb03p42r.cloudfront.net`)로 접속해야 HTTPS 적용됨. ALB로 직접 접속하면 HTTP만 됨. 커스텀 도메인이 생기면 CloudFront에 Alternate Domain Name + ACM 인증서만 추가하면 됨(재구축 불필요).
 - **헬스체크 그레이스 기간 150초로 설정** — 이 앱이 Fargate(0.5 vCPU)에서 기동에 약 70초 걸려서, 그레이스 기간 없이는 ALB가 기동 중인 태스크를 unhealthy로 판단해 죽여버리는 문제가 있었음(최초 배포 시 실제로 발생, 그레이스 기간 추가로 해결).
