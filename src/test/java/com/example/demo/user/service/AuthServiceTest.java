@@ -3,6 +3,7 @@ package com.example.demo.user.service;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.security.jwt.JwtProvider;
+import com.example.demo.global.util.EmailHasher;
 import com.example.demo.global.util.HashUtil;
 import com.example.demo.user.dto.LoginRequest;
 import com.example.demo.user.dto.TokenResponse;
@@ -245,7 +246,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("newgoogle@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash(EmailHasher.hash("newgoogle@example.com"))).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User saved = invocation.getArgument(0);
             saved.setId(10L);
@@ -264,6 +265,7 @@ class AuthServiceTest {
         verify(userRepository).save(userCaptor.capture());
         User createdUser = userCaptor.getValue();
         assertThat(createdUser.getEmail()).isEqualTo("newgoogle@example.com");
+        assertThat(createdUser.getEmailHash()).isEqualTo(EmailHasher.hash("newgoogle@example.com"));
         assertThat(createdUser.getName()).isEqualTo("구글사용자");
         assertThat(createdUser.getProvider()).isEqualTo(Provider.GOOGLE);
         assertThat(createdUser.getProviderId()).isEqualTo("google-sub-1");
@@ -292,7 +294,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("existing@example.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmailHash(EmailHasher.hash("existing@example.com"))).thenReturn(Optional.of(existing));
         when(jwtProvider.generateAccessToken(20L, Role.USER)).thenReturn("access-token");
         when(jwtProvider.generateRefreshToken(20L)).thenReturn("refresh-token");
         when(jwtProvider.getRefreshTokenValidityMs(true)).thenReturn(1_209_600_000L);
@@ -313,7 +315,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("racer@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmailHash(EmailHasher.hash("racer@example.com"))).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenThrow(new DataIntegrityViolationException("duplicate email"));
 
         assertThatThrownBy(() -> authService.googleLogin("auth-code", "http://localhost:5173/callback"))
@@ -344,7 +346,7 @@ class AuthServiceTest {
                 .build();
 
         when(googleOAuthClient.fetchUserInfo("auth-code", "http://localhost:5173/callback")).thenReturn(googleUserInfo);
-        when(userRepository.findByEmail("local@example.com")).thenReturn(Optional.of(localUser));
+        when(userRepository.findByEmailHash(EmailHasher.hash("local@example.com"))).thenReturn(Optional.of(localUser));
 
         assertThatThrownBy(() -> authService.googleLogin("auth-code", "http://localhost:5173/callback"))
                 .isInstanceOf(CustomException.class)
