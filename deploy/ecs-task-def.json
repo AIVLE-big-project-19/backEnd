@@ -37,7 +37,7 @@
       "secrets": [
         { "name": "DB_PASSWORD", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:rds!db-66dc3722-d899-4e15-8191-d96b80fef766-LaTfwG:password::" },
         { "name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/jwt-secret-2oKy22" },
-        { "name": "PII_ENCRYPTION_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/pii-encryption-key-REPLACE_BEFORE_DEPLOY" },
+        { "name": "PII_ENCRYPTION_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/pii-encryption-key-3eHXsF" },
         { "name": "VWORLD_API_KEY", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/vworld-api-key-XY6Et9" },
         { "name": "MAIL_USERNAME", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/mail-username-PSMP8C" },
         { "name": "MAIL_PASSWORD", "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:251917136397:secret:solaraivle/mail-password-eOWckj" },

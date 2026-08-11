@@ -20,7 +20,7 @@
 
 ## 알아둘 점
 
-- **⚠️ PII_ENCRYPTION_KEY는 아직 실제로 생성되지 않음** — `ecs-task-def.json`의 `PII_ENCRYPTION_KEY` 시크릿 ARN은 `solaraivle/pii-encryption-key-REPLACE_BEFORE_DEPLOY` placeholder다. 배포 전 AWS Secrets Manager에 실제로 생성하고 ARN 플레이스홀더를 교체해야 한다. 생성하지 않으면(ECS가 placeholder ARN을 못 찾아 태스크 기동에 실패하므로 이 상태로는 애초에 배포가 안 되지만, 혹시라도 코드가 개발용 기본 키로 fallback 하도록 우회된다면) 개발용 기본 키로 암호화되어 DB 유출 시 실질적인 보호가 없다.
+- **PII_ENCRYPTION_KEY**: AWS Secrets Manager `solaraivle/pii-encryption-key`로 생성 완료, `ecs-task-def.json`에 실제 ARN 연결됨(2026-08-11). 값이 비어있거나 잘못 설정되면 코드가 개발용 기본 키로 fallback해 DB 유출 시 실질적인 보호가 없어지니, 절대 삭제/변경하지 말 것 — 변경 시 이미 암호화된 기존 email/name을 전부 못 읽게 됨(재암호화 마이그레이션 필요).
 - **NAT Gateway 없음** — Fargate 태스크와 ALB 모두 퍼블릭 서브넷에 위치, 비용 절감 목적. 인터넷 노출은 보안그룹으로만 제어됨(태스크는 ALB의 8080 포트만 허용).
 - **HTTPS는 CloudFront에서만 제공** — ALB 자체는 여전히 HTTP:80만 리스닝. 실제 사용자는 CloudFront 주소(`https://d1iuhepb03p42r.cloudfront.net`)로 접속해야 HTTPS 적용됨. ALB로 직접 접속하면 HTTP만 됨. 커스텀 도메인이 생기면 CloudFront에 Alternate Domain Name + ACM 인증서만 추가하면 됨(재구축 불필요).
 - **헬스체크 그레이스 기간 150초로 설정** — 이 앱이 Fargate(0.5 vCPU)에서 기동에 약 70초 걸려서, 그레이스 기간 없이는 ALB가 기동 중인 태스크를 unhealthy로 판단해 죽여버리는 문제가 있었음(최초 배포 시 실제로 발생, 그레이스 기간 추가로 해결).
