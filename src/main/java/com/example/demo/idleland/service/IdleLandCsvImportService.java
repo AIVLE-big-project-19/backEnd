@@ -2,9 +2,12 @@ package com.example.demo.idleland.service;
 
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.idleland.client.MlScoringClient;
 import com.example.demo.idleland.dto.IdleLandImportResultDto;
+import com.example.demo.idleland.dto.MlRankResponse;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
+import com.example.demo.idleland.support.PercentileCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
@@ -18,9 +21,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 // 관리자가 업로드하는 유휴부지 원본(Uninstalled) CSV로 idle_land 테이블을 전량 교체한다.
+// 업로드 시점에 Ranking_ML을 한 번 호출해 점수·등급·순위를 미리 계산해 저장해두면,
+// 이후 검색(분석 요청)은 ML을 실시간 호출하지 않고 DB 값만 읽는다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,6 +43,8 @@ public class IdleLandCsvImportService {
         if (parsed.isEmpty()) {
             throw new CustomException(ErrorCode.IDLE_LAND_CSV_PARSE_FAILED, "업로드한 CSV에 유효한 데이터가 없습니다.");
         }
+
+        scoreAll(parsed);
 
         idleLandRepository.truncateTable();
         idleLandRepository.saveAll(parsed);
@@ -73,6 +83,82 @@ public class IdleLandCsvImportService {
     private static final Set<String> BUILDING_VALUES = Set.of("건물", "건물형", "BUILDING", "building", "1");
 
     private final IdleLandRepository idleLandRepository;
+    private final MlScoringClient mlScoringClient;
+
+    // LAND/BUILDING별로 묶어 Ranking_ML을 한 번씩 호출하고, 결과를 각 IdleLand에 반영한다.
+    // ML 서버 호출이 실패해도 CSV 업로드 자체는 막지 않고 해당 그룹의 점수만 비워둔다.
+    private void scoreAll(List<IdleLand> rows) {
+        Map<String, List<IdleLand>> byType = rows.stream()
+                .filter(row -> "LAND".equals(row.getAssetTypeNorm()) || "BUILDING".equals(row.getAssetTypeNorm()))
+                .collect(Collectors.groupingBy(IdleLand::getAssetTypeNorm));
+
+        for (Map.Entry<String, List<IdleLand>> entry : byType.entrySet()) {
+            String datasetType = "BUILDING".equals(entry.getKey()) ? "building" : "land";
+            applyVisionScores(entry.getValue());
+            try {
+                MlRankResponse response = mlScoringClient.rank(datasetType, entry.getValue(), 0, false);
+                Map<String, Map<String, Object>> bySourceId = response.getRanking() == null
+                        ? Map.of()
+                        : response.getRanking().stream()
+                                .collect(Collectors.toMap(
+                                        row -> String.valueOf(row.get("source_id_ml")),
+                                        row -> row,
+                                        (a, b) -> a));
+
+                for (IdleLand row : entry.getValue()) {
+                    Map<String, Object> scoreRow = bySourceId.get(row.mlSourceId());
+                    if (scoreRow == null) continue;
+                    row.applyScore(
+                            toDouble(scoreRow.get("Solar_Readiness_Score")),
+                            scoreRow.get("Solar_Readiness_Grade") == null ? null : String.valueOf(scoreRow.get("Solar_Readiness_Grade")),
+                            toInteger(scoreRow.get("Candidate_Rank"))
+                    );
+                }
+                recalculateGrades(entry.getValue());
+            } catch (RuntimeException e) {
+                log.warn("{} 그룹 ML 채점 실패, 해당 그룹은 점수 없이 저장합니다: {}", datasetType, e.getMessage());
+            }
+        }
+    }
+
+
+    private void recalculateGrades(List<IdleLand> group) {
+        List<Double> population = group.stream()
+                .map(IdleLand::getSolarReadinessScore)
+                .filter(Objects::nonNull)
+                .toList();
+
+        for (IdleLand row : group) {
+            Double score = row.getSolarReadinessScore();
+            if (score == null) continue;
+            Double percentile = PercentileCalculator.percentile(population, score);
+            if (percentile == null) continue;
+            row.applyGrade(PercentileCalculator.gradeFromPercentile(percentile));
+        }
+    }
+
+
+    private void applyVisionScores(List<IdleLand> group) {
+        List<Integer> population = group.stream()
+                .map(IdleLand::getEstimatedPanelCount)
+                .filter(Objects::nonNull)
+                .toList();
+
+        for (IdleLand row : group) {
+            Double percentile = PercentileCalculator.percentile(population, row.getEstimatedPanelCount());
+            if (percentile != null) {
+                row.applyVisionScore(percentile * 100);
+            }
+        }
+    }
+
+    private Double toDouble(Object value) {
+        return value instanceof Number number ? number.doubleValue() : null;
+    }
+
+    private Integer toInteger(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
+    }
 
     private List<IdleLand> parse(MultipartFile file) {
         String content;
@@ -147,6 +233,7 @@ public class IdleLandCsvImportService {
                 .assetTypeCode(intg(record, "asset_type_code"))
                 .regionGroup(str(record, "region_group"))
                 .assetTypeNorm(normalizeAssetType(assetTypeRaw))
+                .estimatedPanelCount(intg(record, "estimated_panel_count"))
                 .build();
     }
 

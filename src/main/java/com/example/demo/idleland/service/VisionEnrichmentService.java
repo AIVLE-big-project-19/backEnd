@@ -5,6 +5,8 @@ import com.example.demo.idleland.client.PolicyAgentClient;
 import com.example.demo.idleland.client.VWorldImageClient;
 import com.example.demo.idleland.client.VisionAiClient;
 import com.example.demo.idleland.entity.IdleLand;
+import com.example.demo.idleland.repository.IdleLandRepository;
+import com.example.demo.idleland.support.PercentileCalculator;
 import com.example.demo.report.dto.AgentExplanation;
 import com.example.demo.report.dto.AiAnalysisResponse;
 import com.example.demo.report.dto.BusinessRoute;
@@ -42,16 +44,69 @@ public class VisionEnrichmentService {
     private final VisionAiClient visionAiClient;
     private final MlScoringClient mlScoringClient;
     private final PolicyAgentClient policyAgentClient;
+    private final IdleLandRepository idleLandRepository;
 
     public void enrich(IdleLand idleLand, AiAnalysisResponse target) {
-        enrichFromVision(idleLand, target);
+        Double freshVisionScore = enrichFromVision(idleLand, target);
+        recalculateScores(idleLand, target, freshVisionScore);
+        recalculateGrade(idleLand, target);
         enrichFromPolicyAgent(idleLand, target);
     }
 
-    private void enrichFromVision(IdleLand idleLand, AiAnalysisResponse target) {
+    private void recalculateScores(IdleLand idleLand, AiAnalysisResponse target, Double freshVisionScore) {
+        try {
+            var evaluation = target.getScoresAndEvaluation();
+            DetailScores detailScores = evaluation == null ? null : evaluation.getDetailScores();
+            Double storedTotal = idleLand.getSolarReadinessScore();
+            if (evaluation == null || detailScores == null || storedTotal == null) {
+                return;
+            }
+
+            Double storedVision = idleLand.getVisionScore();
+            double mlTechnical = storedVision == null ? storedTotal : (2 * storedTotal - storedVision);
+            detailScores.setMlTechnicalScore((int) Math.round(mlTechnical));
+
+            Double effectiveVisionScore = freshVisionScore != null ? freshVisionScore : storedVision;
+            double newTotal = effectiveVisionScore == null ? mlTechnical : (mlTechnical + effectiveVisionScore) / 2;
+            evaluation.setTotalScore((int) Math.round(newTotal));
+        } catch (Exception exception) {
+            log.warn("유휴부지 id={} 점수 재계산 실패, 라이브 ML 값을 유지합니다: {}", idleLand.getId(), exception.getMessage());
+        }
+    }
+
+
+    private void recalculateGrade(IdleLand idleLand, AiAnalysisResponse target) {
+        try {
+            var evaluation = target.getScoresAndEvaluation();
+            if (evaluation == null || evaluation.getTotalScore() == null) {
+                return;
+            }
+
+            List<Double> population = idleLandRepository.findSolarReadinessScoresByAssetTypeNorm(idleLand.getAssetTypeNorm());
+            if (population == null || population.isEmpty()) {
+                return;
+            }
+
+            double totalScore = evaluation.getTotalScore();
+            List<Double> withCandidate = new ArrayList<>(population);
+            withCandidate.add(totalScore);
+
+            Double percentile = PercentileCalculator.percentile(withCandidate, totalScore);
+            if (percentile == null) {
+                return;
+            }
+
+            evaluation.setGrade(PercentileCalculator.gradeFromPercentile(percentile));
+        } catch (Exception exception) {
+            log.warn("유휴부지 id={} 등급 재계산 실패, 기존 값을 유지합니다: {}", idleLand.getId(), exception.getMessage());
+        }
+    }
+
+
+    private Double enrichFromVision(IdleLand idleLand, AiAnalysisResponse target) {
         if (idleLand.getLongitude() == null || idleLand.getLatitude() == null) {
             log.warn("유휴부지 id={} 위경도 정보가 없어 Vision 분석을 건너뜁니다.", idleLand.getId());
-            return;
+            return null;
         }
 
         try {
@@ -64,20 +119,29 @@ public class VisionEnrichmentService {
 
             if (visionResult.getPredictions() == null || visionResult.getPredictions().isEmpty()) {
                 log.info("유휴부지 id={} Vision AI가 탐지한 후보가 없어 면적 가중 점수는 건너뜁니다.", idleLand.getId());
-                return;
+                return null;
             }
+
+
+            Integer estimatedPanelCount = visionResult.getPredictions().get(0).get("estimated_panel_count") instanceof Number number
+                    ? number.intValue() : null;
+            List<Integer> population = idleLandRepository.findEstimatedPanelCountsByAssetTypeNorm(idleLand.getAssetTypeNorm());
+            Double percentile = PercentileCalculator.percentile(population, estimatedPanelCount);
+            Double visionScore = percentile == null ? null : percentile * 100;
 
             Map<String, Object> integrated = mlScoringClient.analyzeVisionJson(visionResult.getPredictions());
             Object resultsValue = integrated.get("results");
             if (resultsValue instanceof List<?> results && !results.isEmpty()
                     && results.get(0) instanceof Map<?, ?> result) {
-                mergeVisionResult(target, result);
+                mergeVisionResult(target, result, visionScore);
             } else {
                 log.info("유휴부지 id={} ML 통합 분석 결과가 비어 있어 면적 가중 점수는 건너뜁니다.", idleLand.getId());
             }
+            return visionScore;
         } catch (Exception exception) {
             log.warn("유휴부지 id={} Vision/ML 통합 분석 실패, 기존 값을 유지합니다: {}",
                     idleLand.getId(), exception.getMessage());
+            return null;
         }
     }
 
@@ -173,7 +237,7 @@ public class VisionEnrichmentService {
     }
 
     @SuppressWarnings("unchecked")
-    private void mergeVisionResult(AiAnalysisResponse target, Map<?, ?> result) {
+    private void mergeVisionResult(AiAnalysisResponse target, Map<?, ?> result, Double visionScore) {
         Object siteInfoObj = result.get("1_site_info");
         SiteInfo siteInfo = target.getSiteInfo();
         if (siteInfo != null && siteInfoObj instanceof Map<?, ?> site) {
@@ -195,7 +259,7 @@ public class VisionEnrichmentService {
 
             DetailScores detailScores = target.getScoresAndEvaluation().getDetailScores();
             if (detailScores != null && scores.get("detail_scores") instanceof Map<?, ?> detail) {
-                mergeVisionDetailScore(detailScores, detail, siteInfoObj);
+                mergeVisionDetailScore(detailScores, detail, siteInfoObj, visionScore);
                 detailScores.setRuleBasedScore(integer(detail.get("rule_based_score"), detailScores.getRuleBasedScore()));
             }
 
@@ -214,7 +278,7 @@ public class VisionEnrichmentService {
             }
         }
 
-        if (result.get("3_vision_ai_and_simulation") instanceof Map<?, ?> visionSection
+        if (result.get("3_vision_ai_simulation") instanceof Map<?, ?> visionSection
                 && visionSection.get("vision_analysis") instanceof Map<?, ?> rawVisionAnalysis) {
             VisionAiSimulation visionAiSimulation = target.getVisionAiSimulation();
             if (visionAiSimulation == null) {
@@ -264,11 +328,10 @@ public class VisionEnrichmentService {
         }
     }
 
-    // ML 통합 분석의 detail_scores(vision_area_score/vision_confidence)를
-    // 보고서의 "Vision AI 환경 평가" 점수·근거 텍스트로 옮긴다.
-    private void mergeVisionDetailScore(DetailScores detailScores, Map<?, ?> detail, Object siteInfoObj) {
-        if (detail.get("vision_area_score") instanceof Number number) {
-            detailScores.setVisionAiScore((int) Math.round(number.doubleValue() * 100));
+
+    private void mergeVisionDetailScore(DetailScores detailScores, Map<?, ?> detail, Object siteInfoObj, Double visionScore) {
+        if (visionScore != null) {
+            detailScores.setVisionAiScore((int) Math.round(visionScore));
         }
 
         if (detail.get("vision_confidence") instanceof Number number) {
@@ -278,7 +341,7 @@ public class VisionEnrichmentService {
                     ? String.format("%.1f㎡", areaNumber.doubleValue())
                     : "면적 정보 없음";
             detailScores.setVisionReason(String.format(
-                    "Vision AI가 탐지 신뢰도 %.1f%%, 실제 탐지 면적 %s를 기준으로 산출한 면적 가중 점수입니다.",
+                    "Vision AI가 탐지 신뢰도 %.1f%%, 실제 탐지 면적 %s를 기준으로 추정한 설치 가능 패널 개수 기반 적합도 점수입니다.",
                     confidencePercent, areaText));
         }
     }

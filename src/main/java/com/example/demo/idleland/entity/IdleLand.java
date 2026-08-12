@@ -83,9 +83,42 @@ public class IdleLand extends BaseEntity {
     @Column(length = 50)
     private String regionGroup;
 
-    // 자산구분_ML을 정규화한 값. ML 서버의 dataset_type("land"/"building")을 결정하는 데 사용.
+
     @Column(length = 20)
     private String assetTypeNorm;
+
+    private Integer estimatedPanelCount;
+    private Double visionScore;
+
+    public void applyVisionScore(Double visionScore) {
+        this.visionScore = visionScore;
+    }
+
+    private Double solarReadinessScore;
+
+    @Column(length = 10)
+    private String solarReadinessGrade;
+
+    private Integer candidateRank;
+
+    public void applyScore(Double mlScore, String grade, Integer rank) {
+        this.solarReadinessScore = combineWithVision(mlScore);
+        this.solarReadinessGrade = grade;
+        this.candidateRank = rank;
+    }
+
+    // Ranking_ML이 준 grade는 Vision 반영 전 순수 ML 점수 기준이라, solarReadinessScore(ML+Vision
+    // 블렌딩 값)의 백분위와 어긋날 수 있다. CSV 업로드 시점에 블렌딩 점수 기준으로 다시 계산한
+    // grade로 덮어쓸 때 씀
+    public void applyGrade(String grade) {
+        this.solarReadinessGrade = grade;
+    }
+
+    private Double combineWithVision(Double mlScore) {
+        if (mlScore == null) return visionScore;
+        if (visionScore == null) return mlScore;
+        return (mlScore + visionScore) / 2;
+    }
 
     // ML 서버로 보내는 CSV의 source_id_ml 값. 원본 sourceId가 비어있으면 DB PK로 대체해
     // ML 응답과 다시 매칭할 때 항상 유일한 키를 쓸 수 있게 한다.

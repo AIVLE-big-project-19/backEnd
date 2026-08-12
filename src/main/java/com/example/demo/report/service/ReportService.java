@@ -157,7 +157,7 @@ public class ReportService {
                     .setWidth(UnitValue.createPercentValue(60))
                     .setMarginBottom(4);
             document.add(image);
-            addVisionColorLegend(document);
+//            addVisionColorLegend(document);
         } catch (Exception e) {
             // 이미지 디코딩 실패는 보고서 생성 자체를 막지 않는다.
         }
@@ -166,9 +166,6 @@ public class ReportService {
     // 이미지에 칠해진 색이 각각 무엇을 뜻하는지 이미지 바로 아래에 간단히 표시한다.
     private void addVisionColorLegend(Document document) {
         Paragraph legend = new Paragraph().setFontSize(8.5f).setMarginBottom(10);
-        addLegendItem(legend, VISION_COLOR_BUILDING, "건물");
-        addLegendItem(legend, VISION_COLOR_LAND, "토지");
-        addLegendItem(legend, VISION_COLOR_PARKING_LOT, "주차장");
         document.add(legend);
     }
 
@@ -214,8 +211,7 @@ public class ReportService {
         addLabelCell(table, boldFont, "시설 / 공간 유형");
         addValueCell(table, font, safe(site.getSpaceType()));
 
-        addLabelCell(table, boldFont, "전체 면적");
-        addValueCell(table, font, formatArea(site.getTotalArea()));
+
         addLabelCell(table, boldFont, availableAreaLabel);
         String availableAreaValue = formatArea(site.getAvailableArea());
         if (site.getAvailabilityRatePercent() != null) {
@@ -223,8 +219,7 @@ public class ReportService {
         }
         addValueCell(table, font, availableAreaValue);
 
-//        addLabelCell(table, boldFont, "소유 / 관리 기관");
-//        addValueCell(table, font, safe(site.getOwnerAgency()));
+
         addLabelCell(table, boldFont, "분석 일자");
         addValueCell(table, font, safe(site.getCreatedAt()));
 
@@ -242,7 +237,7 @@ public class ReportService {
 
         addScoreRow(table, font, "ML 기술적 적합도", scores.getMlTechnicalScore(), scores.getMlReason());
         addScoreRow(table, font, "Vision AI 환경 평가", scores.getVisionAiScore(), scores.getVisionReason());
-        addScoreRow(table, font, "Rule-based 규제 검토", scores.getRuleBasedScore(), scores.getRuleReason());
+        addRuleBasedScoreRow(table, font, scores.getRuleBasedScore(), scores.getRuleReason());
 
         document.add(table);
     }
@@ -250,6 +245,15 @@ public class ReportService {
     private void addScoreRow(Table table, PdfFont font, String label, Integer score, String reason) {
         table.addCell(plainCell(font, label));
         table.addCell(plainCell(font, score != null ? score + "점 / 100점" : "-").setTextAlignment(TextAlignment.CENTER));
+        table.addCell(plainCell(font, safe(reason)));
+    }
+
+    // Rule-based 규제 검토는 통과/미통과를 100/0으로 표현하는 이진값이라, 점수가 아니라
+    // PASS/FAIL로 보여준다.
+    private void addRuleBasedScoreRow(Table table, PdfFont font, Integer score, String reason) {
+        table.addCell(plainCell(font, "Rule-based 규제 검토"));
+        String display = score == null ? "-" : score > 0 ? "PASS" : "FAIL";
+        table.addCell(plainCell(font, display).setTextAlignment(TextAlignment.CENTER));
         table.addCell(plainCell(font, safe(reason)));
     }
 
@@ -290,9 +294,7 @@ public class ReportService {
         document.add(table);
     }
 
-    // Ranking_ML의 통합 파이프라인(analyze/vision-json)이 아직 값을 채워주지 않는 항목
-    // (지붕 구조, 음영 비율·면적, 식생 피복률, 진입로, 추천 방향·각도 등)은 항상 "-"만 나오므로
-    // 혼동을 주지 않도록 표에서 뺀다. 상류에서 값을 채워주기 시작하면 다시 추가하면 된다.
+
     private LinkedHashMap<String, String> roofVisionLabels() {
         LinkedHashMap<String, String> labels = new LinkedHashMap<>();
         labels.put("vision_candidate_type", "Vision AI 인식 유형");
