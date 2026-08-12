@@ -10,6 +10,7 @@ import com.example.demo.idleland.dto.MlRankResponse;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
 import com.example.demo.idleland.service.VisionEnrichmentService;
+import com.example.demo.idleland.support.EconomicsCalculator;
 import com.example.demo.report.dto.AiAnalysisResponse;
 import com.example.demo.report.dto.ChecklistItem;
 import com.example.demo.report.dto.DetailScores;
@@ -34,11 +35,6 @@ public class DashboardCandidateAnalysisService {
     private static final double LAND_AREA_PER_KW_M2 = 10d;
     private static final double ROOF_AREA_PER_KW_M2 = 7.5d;
     private static final long GENERATION_PER_KW = 1_300L;
-    private static final long LAND_INSTALLATION_COST_PER_KW = 1_200_000L;
-    private static final long ROOF_INSTALLATION_COST_PER_KW = 1_300_000L;
-    private static final long PARKING_LOT_INSTALLATION_COST_PER_KW = 1_500_000L;
-    private static final double ANNUAL_OM_RATE = 0.015d;
-    private static final long REVENUE_PER_KWH = 160L;
     private static final double DEFAULT_TILT_DEGREES = 30d;
     private static final double[] MONTHLY_FALLBACK_WEIGHTS = {
             0.62d, 0.70d, 0.88d, 1.02d, 1.14d, 1.20d,
@@ -205,45 +201,29 @@ public class DashboardCandidateAnalysisService {
             Long locationBasedAnnualGenerationKwh
     ) {
         Long annualGenerationKwh = locationBasedAnnualGenerationKwh;
-        Long annualRevenueKrw = null;
-        Double roiPercent = null;
-        Double paybackYears = null;
-
         if (annualGenerationKwh == null && capacityKw != null) {
             annualGenerationKwh = capacityKw * GENERATION_PER_KW;
         }
-        if (annualRevenueKrw == null && annualGenerationKwh != null) {
-            annualRevenueKrw = annualGenerationKwh * REVENUE_PER_KWH;
-        }
+        Long annualRevenueKrw = EconomicsCalculator.resolveAnnualRevenueKrw(annualGenerationKwh, null);
 
-        long installationCostPerKw = installationCostPerKw(registeredType);
-        Long installationCost = capacityKw == null ? null : capacityKw * installationCostPerKw;
-        Long annualOmCost = installationCost == null ? null : Math.round(installationCost * ANNUAL_OM_RATE);
-        Long annualNetIncome = annualRevenueKrw == null || annualOmCost == null
-                ? null
-                : annualRevenueKrw - annualOmCost;
-
-        if (installationCost != null && annualNetIncome != null && annualNetIncome > 0) {
-            roiPercent = roundOneDecimal(annualNetIncome / (double) installationCost * 100d);
-            paybackYears = roundOneDecimal(installationCost / (double) annualNetIncome);
-        }
+        EconomicsCalculator.RoiResult roi = EconomicsCalculator.calculateRoi(registeredType, capacityKw, annualRevenueKrw);
 
         DashboardCandidateAnalysisResponse.EconomicAssumptions assumptions =
                 new DashboardCandidateAnalysisResponse.EconomicAssumptions(
                         registeredType,
-                        installationCostPerKw,
-                        installationCost,
-                        ANNUAL_OM_RATE * 100d,
-                        annualOmCost,
-                        annualNetIncome
+                        EconomicsCalculator.installationCostPerKw(registeredType),
+                        roi.installationCost(),
+                        EconomicsCalculator.ANNUAL_OM_RATE * 100d,
+                        roi.annualOmCost(),
+                        roi.annualNetIncome()
                 );
 
         return new EconomicEstimate(
                 capacityKw,
                 annualGenerationKwh,
                 annualRevenueKrw,
-                roiPercent,
-                paybackYears,
+                roi.roiPercent(),
+                roi.paybackYears(),
                 assumptions
         );
     }
@@ -263,14 +243,6 @@ public class DashboardCandidateAnalysisService {
             return Math.round(capacityKw * pvoutAvgDaily * 365d);
         }
         return capacityKw * GENERATION_PER_KW;
-    }
-
-    private long installationCostPerKw(String registeredType) {
-        return switch (registeredType) {
-            case "ROOF" -> ROOF_INSTALLATION_COST_PER_KW;
-            case "PARKING_LOT" -> PARKING_LOT_INSTALLATION_COST_PER_KW;
-            default -> LAND_INSTALLATION_COST_PER_KW;
-        };
     }
 
     private Optional<PvgisClient.Forecast> fetchGenerationForecast(

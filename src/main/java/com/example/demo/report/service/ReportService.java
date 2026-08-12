@@ -1,5 +1,6 @@
 package com.example.demo.report.service;
 
+import com.example.demo.idleland.support.EconomicsCalculator;
 import com.example.demo.report.client.AiAnalysisClient;
 import com.example.demo.report.support.DummyAnalysisFixtures;
 import com.example.demo.report.dto.AgentExplanation;
@@ -123,7 +124,7 @@ public class ReportService {
 
             document.add(new Paragraph("What-if 발전량 및 수익성 예측 시뮬레이션")
                     .setFont(boldFont).setFontSize(10.5f).setMarginTop(10).setMarginBottom(4));
-            addSimulationTable(document, font, boldFont, visionAiSimulation.getSimulation());
+            addSimulationTable(document, font, boldFont, visionAiSimulation.getSimulation(), targetType);
         }
 
         addSectionHeader(document, boldFont, "4. 리스크 진단 및 연계 지원사업 추천");
@@ -340,7 +341,7 @@ public class ReportService {
         return value + suffix;
     }
 
-    private void addSimulationTable(Document document, PdfFont font, PdfFont boldFont, Simulation sim) {
+    private void addSimulationTable(Document document, PdfFont font, PdfFont boldFont, Simulation sim, String targetType) {
         if (sim == null) {
             return;
         }
@@ -359,11 +360,22 @@ public class ReportService {
                         ? String.format("약 %,d 만원 / 년", sim.getAnnualRevenueKrw() / 10000) : "-")
                 .setTextAlignment(TextAlignment.CENTER));
 
+        Double roiPercent = sim.getRoiPercent();
+        Double paybackYears = sim.getPaybackYears();
+        if (roiPercent == null) {
+            Long annualRevenueKrw = EconomicsCalculator.resolveAnnualRevenueKrw(
+                    sim.getAnnualGenerationKwh(), sim.getAnnualRevenueKrw());
+            EconomicsCalculator.RoiResult roi = EconomicsCalculator.calculateRoi(
+                    targetType, sim.getRecommendedCapacityKw(), annualRevenueKrw);
+            roiPercent = roi.roiPercent();
+            paybackYears = roi.paybackYears();
+        }
+
         String roiText = "-";
-        if (sim.getRoiPercent() != null) {
-            roiText = String.format("%.1f%%", sim.getRoiPercent());
-            if (sim.getPaybackYears() != null) {
-                roiText += String.format(" (회수기간 약 %.1f년)", sim.getPaybackYears());
+        if (roiPercent != null) {
+            roiText = String.format("%.1f%%", roiPercent);
+            if (paybackYears != null) {
+                roiText += String.format(" (회수기간 약 %.1f년)", paybackYears);
             }
         }
         table.addCell(plainCell(font, roiText).setTextAlignment(TextAlignment.CENTER));
