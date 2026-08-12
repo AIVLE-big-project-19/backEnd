@@ -143,7 +143,10 @@ public class DashboardCandidateAnalysisService {
                 new DashboardCandidateAnalysisResponse.ScoreBreakdown(
                         details == null ? null : details.getMlTechnicalScore(),
                         details == null ? null : details.getVisionAiScore(),
-                        details == null ? null : details.getRuleBasedScore()
+                        details == null ? null : details.getRuleBasedScore(),
+                        details == null ? null : details.getMlReason(),
+                        details == null ? null : details.getVisionReason(),
+                        details == null ? null : details.getRuleReason()
                 ),
                 roofAnalysis,
                 toRisks(analysis),
@@ -409,9 +412,29 @@ public class DashboardCandidateAnalysisService {
                 number(values.get(roof ? "roof_slope_deg" : "slope_degree")),
                 number(values.get(roof ? "obstacle_shading_ratio_percent" : "vegetation_coverage_percent")),
                 number(values.get("obstacle_shading_area")),
-                text(values.get("recommended_orientation"), null),
-                number(values.get("recommended_tilt_angle_deg"))
+                resolveDirection(values),
+                number(values.get("recommended_tilt_angle_deg")),
+                number(values.get("distance_to_road_m")),
+                number(values.get("distance_to_building_m")),
+                number(values.get("shape_efficiency")),
+                integer(values.get("estimated_panel_count"), null)
         );
+    }
+
+    private String resolveDirection(Map<String, Object> values) {
+        String recommended = text(values.get("recommended_orientation"), null);
+        if (recommended != null && !recommended.isBlank()) {
+            return recommended;
+        }
+        Object aspect = values.get("aspect_direction");
+        if (aspect instanceof String direction && !direction.isBlank()) {
+            return direction;
+        }
+        Double degrees = number(aspect != null ? aspect : values.get("aspect_direction_degree"));
+        if (degrees == null) return null;
+        String[] directions = {"북", "북동", "동", "남동", "남", "남서", "서", "북서"};
+        int index = (int) Math.round(((degrees % 360d) + 360d) % 360d / 45d) % 8;
+        return directions[index];
     }
 
     private List<DashboardCandidateAnalysisResponse.RiskItem> toRisks(AiAnalysisResponse analysis) {
@@ -485,6 +508,14 @@ public class DashboardCandidateAnalysisService {
             }
         }
         return null;
+    }
+
+    private Integer integer(Object value, Integer fallback) {
+        Double parsed = number(value);
+        if (parsed == null) {
+            return fallback;
+        }
+        return (int) Math.round(parsed);
     }
 
     private String text(Object value, String fallback) {
