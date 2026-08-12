@@ -13,9 +13,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,13 +37,52 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class IdleLandCsvImportService {
+
+    private final S3Client s3Client;
+
+    @Value("${app.idle-land-import.s3-bucket}")
+    private String s3Bucket;
+
+    @Value("${app.idle-land-import.s3-key}")
+    private String s3Key;
+
     @Transactional
     public IdleLandImportResultDto replaceAll(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new CustomException(ErrorCode.IDLE_LAND_CSV_PARSE_FAILED, "업로드된 파일이 없습니다.");
         }
 
-        List<IdleLand> parsed = parse(file);
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.IDLE_LAND_CSV_PARSE_FAILED);
+        }
+        return replaceAllFromBytes(bytes);
+    }
+
+    // 테스트용: 관리자 페이지에서 파일을 직접 선택하지 않고, S3에 미리 올려둔 CSV(app.idle-land-import
+    // 설정의 버킷/키)를 그대로 가져와 파일 업로드와 완전히 같은 로직(파싱 -> ML 재채점 -> 전량 교체)을 태운다.
+    @Transactional
+    public IdleLandImportResultDto replaceAllFromS3() {
+        if (s3Bucket == null || s3Bucket.isBlank()) {
+            throw new CustomException(ErrorCode.IDLE_LAND_S3_FETCH_FAILED, "S3 버킷이 설정되지 않았습니다.");
+        }
+
+        byte[] bytes;
+        try {
+            bytes = s3Client.getObjectAsBytes(
+                    GetObjectRequest.builder().bucket(s3Bucket).key(s3Key).build()
+            ).asByteArray();
+        } catch (SdkException e) {
+            throw new CustomException(ErrorCode.IDLE_LAND_S3_FETCH_FAILED,
+                    "S3(%s/%s)에서 CSV를 가져오지 못했습니다: %s".formatted(s3Bucket, s3Key, e.getMessage()));
+        }
+        return replaceAllFromBytes(bytes);
+    }
+
+    private IdleLandImportResultDto replaceAllFromBytes(byte[] bytes) {
+        List<IdleLand> parsed = parse(bytes);
         if (parsed.isEmpty()) {
             throw new CustomException(ErrorCode.IDLE_LAND_CSV_PARSE_FAILED, "업로드한 CSV에 유효한 데이터가 없습니다.");
         }
@@ -160,13 +203,8 @@ public class IdleLandCsvImportService {
         return value instanceof Number number ? number.intValue() : null;
     }
 
-    private List<IdleLand> parse(MultipartFile file) {
-        String content;
-        try {
-            content = new String(file.getBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new CustomException(ErrorCode.IDLE_LAND_CSV_PARSE_FAILED);
-        }
+    private List<IdleLand> parse(byte[] bytes) {
+        String content = new String(bytes, StandardCharsets.UTF_8);
         if (content.startsWith("﻿")) {
             content = content.substring(1);
         }
