@@ -87,6 +87,7 @@ class DashboardCandidateAnalysisServiceTest {
         assertThat(result.economicAssumptions().installationCostPerKw()).isEqualTo(1_300_000L);
         assertThat(result.economicAssumptions().annualOmRatePercent()).isEqualTo(1.5d);
         assertThat(result.scores().ml()).isEqualTo(93);
+        assertThat(result.scores().mlReason()).isEqualTo("일사량과 계통 접근성이 양호함");
         assertThat(result.roofAnalysis().slopeDegrees()).isEqualTo(12d);
         verify(mlScoringClient).rank("building", List.of(idleLand), 1, true);
     }
@@ -262,6 +263,7 @@ class DashboardCandidateAnalysisServiceTest {
 
         DetailScores details = new DetailScores();
         details.setMlTechnicalScore(93);
+        details.setMlReason("일사량과 계통 접근성이 양호함");
         details.setVisionAiScore(88);
         details.setRuleBasedScore(92);
 

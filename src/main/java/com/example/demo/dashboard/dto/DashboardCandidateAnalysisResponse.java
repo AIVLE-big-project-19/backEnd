@@ -71,7 +71,14 @@ public record DashboardCandidateAnalysisResponse(
 
     public record MonthlyGeneration(Integer month, Long generationKwh) {}
 
-    public record ScoreBreakdown(Integer ml, Integer vision, Integer regulation) {}
+    public record ScoreBreakdown(
+            Integer ml,
+            Integer vision,
+            Integer regulation,
+            String mlReason,
+            String visionReason,
+            String regulationReason
+    ) {}
 
     public record RoofAnalysis(
             String type,
@@ -80,7 +87,11 @@ public record DashboardCandidateAnalysisResponse(
             Double shadowRate,
             Double shadowAreaM2,
             String moduleDirection,
-            Double installAngleDegrees
+            Double installAngleDegrees,
+            Double roadDistanceM,
+            Double buildingDistanceM,
+            Double shapeEfficiency,
+            Integer estimatedPanelCount
     ) {}
 
     public record RiskItem(String key, String label, String status, String level, String detail) {}
