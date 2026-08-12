@@ -414,11 +414,25 @@ public class DashboardCandidateAnalysisService {
                 number(values.get("obstacle_shading_area")),
                 resolveDirection(values),
                 number(values.get("recommended_tilt_angle_deg")),
-                number(values.get("distance_to_road_m")),
-                number(values.get("distance_to_building_m")),
-                number(values.get("shape_efficiency")),
-                integer(values.get("estimated_panel_count"), null)
+                number(firstValue(values,
+                        "distance_to_road_m", "road_distance_m", "roadDistanceM")),
+                number(firstValue(values,
+                        "distance_to_building_m", "building_distance_m", "buildingDistanceM")),
+                number(firstValue(values,
+                        "shape_efficiency", "shapeEfficiency")),
+                integer(firstValue(values,
+                        "estimated_panel_count", "panel_count", "estimatedPanelCount"), null)
         );
+    }
+
+    private Object firstValue(Map<String, Object> values, String... keys) {
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value != null && (!(value instanceof String string) || !string.isBlank())) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private String resolveDirection(Map<String, Object> values) {
