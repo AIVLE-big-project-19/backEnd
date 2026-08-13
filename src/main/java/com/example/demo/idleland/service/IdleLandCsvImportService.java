@@ -272,6 +272,8 @@ public class IdleLandCsvImportService {
                 .regionGroup(str(record, "region_group"))
                 .assetTypeNorm(normalizeAssetType(assetTypeRaw))
                 .estimatedPanelCount(intg(record, "estimated_panel_count"))
+                .parcelGeometryJson(str(record, "parcel_geometry_json"))
+                .panelLayoutJson(str(record, "panel_layout_json"))
                 .build();
     }
 

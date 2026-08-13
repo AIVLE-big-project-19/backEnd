@@ -2,9 +2,11 @@ package com.example.demo.idleland.service;
 
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
+import com.example.demo.idleland.dto.IdleLandParcelDataDto;
 import com.example.demo.idleland.dto.IdleLandSearchResultDto;
 import com.example.demo.idleland.entity.IdleLand;
 import com.example.demo.idleland.repository.IdleLandRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,6 +25,27 @@ import java.util.List;
 public class IdleLandSearchService {
 
     private final IdleLandRepository idleLandRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+   public IdleLandParcelDataDto parcelData(Long id) {
+        IdleLand idleLand = idleLandRepository.findById(id)
+                .orElseThrow(() -> new CustomException(ErrorCode.IDLE_LAND_NOT_FOUND));
+        return new IdleLandParcelDataDto(
+                parseJson(idleLand.getParcelGeometryJson()),
+                parseJson(idleLand.getPanelLayoutJson())
+        );
+    }
+
+    private Object parseJson(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, Object.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     public List<IdleLandSearchResultDto> findAllScored() {
         return scoreAndSort(idleLandRepository.findAll());

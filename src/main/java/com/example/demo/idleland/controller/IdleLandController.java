@@ -2,10 +2,12 @@ package com.example.demo.idleland.controller;
 
 import com.example.demo.global.response.ApiResponse;
 import com.example.demo.global.response.SuccessCode;
+import com.example.demo.idleland.dto.IdleLandParcelDataDto;
 import com.example.demo.idleland.dto.IdleLandSearchResultDto;
 import com.example.demo.idleland.service.IdleLandSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,5 +24,11 @@ public class IdleLandController {
     @GetMapping("/search")
     public ApiResponse<List<IdleLandSearchResultDto>> search(@RequestParam("q") String q) {
         return ApiResponse.success(SuccessCode.IDLE_LAND_SEARCH_FOUND, idleLandSearchService.search(q));
+    }
+
+
+    @GetMapping("/{id}/parcel-data")
+    public ApiResponse<IdleLandParcelDataDto> parcelData(@PathVariable Long id) {
+        return ApiResponse.success(SuccessCode.IDLE_LAND_SEARCH_FOUND, idleLandSearchService.parcelData(id));
     }
 }

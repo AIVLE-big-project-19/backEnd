@@ -90,6 +90,17 @@ public class IdleLand extends BaseEntity {
     private Integer estimatedPanelCount;
     private Double visionScore;
 
+    @Column(columnDefinition = "TEXT")
+    private String parcelGeometryJson;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String panelLayoutJson;
+
+    public void applyParcelData(String parcelGeometryJson, String panelLayoutJson) {
+        this.parcelGeometryJson = parcelGeometryJson;
+        this.panelLayoutJson = panelLayoutJson;
+    }
+
     public void applyVisionScore(Double visionScore) {
         this.visionScore = visionScore;
     }
