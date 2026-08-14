@@ -15,4 +15,4 @@ WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
 USER spring
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
