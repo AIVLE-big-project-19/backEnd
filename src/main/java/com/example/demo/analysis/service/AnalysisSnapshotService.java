@@ -72,7 +72,7 @@ public class AnalysisSnapshotService {
                 .toList();
     }
 
-    // 관리자용: 전체 사용자의 분석 로그를 가볍게(무거운 analysisJson/responseJson 파싱 없이) 조회한다.
+    // 관리자용: 전체 사용자의 분석 로그 조회
     @Transactional(readOnly = true)
     public List<AdminAnalysisLogItem> adminHistory() {
         return snapshotRepository.findAllByOrderByCreatedAtDesc().stream()
@@ -171,8 +171,7 @@ public class AnalysisSnapshotService {
             String status
     ) {}
 
-    // PDF는 캐싱하지 않고 매번 새로 만든다: 스냅샷 저장 시점에 Vision 보강이 실패했더라도
-    // 여기서 다시 시도해서, 실패 상태가 그대로 영구 캐싱되는 일이 없게 한다.
+    // 실패 시 캐싱 오류 방지
     @Transactional
     public byte[] getOrCreatePdf(Long snapshotId, Long userId) throws IOException {
         AnalysisSnapshot snapshot = snapshotRepository.findById(snapshotId)
