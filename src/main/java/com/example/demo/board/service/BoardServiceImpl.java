@@ -139,11 +139,6 @@ public class BoardServiceImpl implements BoardService {
     }
 
     @Override
-    public PageResponse<BoardResponse> getBoards(Pageable pageable, String category){
-        return getBoards(pageable, category, null, false);
-    }
-
-    @Override
     public PageResponse<BoardResponse> getBoards(Pageable pageable, String category, Long userId, boolean isAdmin){
 
         Pageable newestFirst = PageRequest.of(
@@ -304,13 +299,6 @@ public class BoardServiceImpl implements BoardService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
-    /**
-     * Entity → DTO 변환
-     */
-    private BoardResponse entityToResponse(Board board){
-        return entityToResponse(board, null);
-    }
-
     private BoardResponse entityToResponse(Board board, Long viewerId){
 
         return BoardResponse.builder()
@@ -457,7 +445,7 @@ public class BoardServiceImpl implements BoardService {
         try {
             boardFileStorage.delete(storedFilename);
         } catch (RuntimeException ignored) {
-            // 원래 업로드/DB 오류가 사용자에게 전달되도록 정리 실패는 무시한다.
+            // 참고: 업로드 또는 DB 오류를 유지하기 위해 롤백 파일 정리 실패는 무시한다.
         }
     }
 
