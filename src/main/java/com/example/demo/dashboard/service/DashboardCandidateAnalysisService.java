@@ -19,7 +19,6 @@ import com.example.demo.report.dto.ScoresAndEvaluation;
 import com.example.demo.report.dto.SiteInfo;
 import com.example.demo.report.dto.VisionAiSimulation;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardCandidateAnalysisService {
@@ -279,7 +277,7 @@ public class DashboardCandidateAnalysisService {
                 forecast.capacityKw() > 0
                         ? roundOneDecimal(forecast.annualGenerationKwh() / (double) forecast.capacityKw())
                         : null,
-                forecast.fallback(),
+                false,
                 forecast.monthly().stream()
                         .map(item -> new DashboardCandidateAnalysisResponse.MonthlyGeneration(
                                 item.month(),
@@ -393,7 +391,7 @@ public class DashboardCandidateAnalysisService {
                 number(firstValue(values,
                         "shape_efficiency", "shapeEfficiency")),
                 integer(firstValue(values,
-                        "estimated_panel_count", "panel_count", "estimatedPanelCount"), null)
+                        "estimated_panel_count", "panel_count", "estimatedPanelCount"))
         );
     }
 
@@ -496,10 +494,10 @@ public class DashboardCandidateAnalysisService {
         return null;
     }
 
-    private Integer integer(Object value, Integer fallback) {
+    private Integer integer(Object value) {
         Double parsed = number(value);
         if (parsed == null) {
-            return fallback;
+            return null;
         }
         return (int) Math.round(parsed);
     }

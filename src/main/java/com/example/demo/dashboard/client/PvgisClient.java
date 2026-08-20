@@ -1,6 +1,5 @@
 package com.example.demo.dashboard.client;
 
-
 import tools.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -117,7 +116,6 @@ public class PvgisClient {
                 request.tiltDegrees(),
                 request.azimuthDegrees(),
                 systemLossPercent,
-                false,
                 List.copyOf(monthly),
                 annualGenerationKwh
         ));
@@ -150,7 +148,6 @@ public class PvgisClient {
             double tiltDegrees,
             double azimuthDegrees,
             double systemLossPercent,
-            boolean fallback,
             List<MonthlyGeneration> monthly,
             long annualGenerationKwh
     ) {}
