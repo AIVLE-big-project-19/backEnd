@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-// /admin/** 는 SecurityConfig에서 hasRole("ADMIN")으로 자동 보호됨
 @RestController
 @RequestMapping("/admin/idle-lands")
 @RequiredArgsConstructor
@@ -25,8 +24,6 @@ public class AdminIdleLandController {
         return ApiResponse.success(SuccessCode.IDLE_LAND_UPLOADED, idleLandCsvImportService.replaceAll(file));
     }
 
-    // 테스트용: 파일을 직접 고르지 않고, S3에 미리 올려둔 CSV(app.idle-land-import 설정)를
-    // 그대로 가져와 위 /upload와 동일한 로직으로 처리한다.
     @PostMapping("/upload-from-s3")
     public ApiResponse<IdleLandImportResultDto> uploadFromS3() {
         return ApiResponse.success(SuccessCode.IDLE_LAND_UPLOADED, idleLandCsvImportService.replaceAllFromS3());

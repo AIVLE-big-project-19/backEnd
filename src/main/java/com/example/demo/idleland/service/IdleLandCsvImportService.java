@@ -30,9 +30,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// 관리자가 업로드하는 유휴부지 원본(Uninstalled) CSV로 idle_land 테이블을 전량 교체한다.
-// 업로드 시점에 Ranking_ML을 한 번 호출해 점수·등급·순위를 미리 계산해 저장해두면,
-// 이후 검색(분석 요청)은 ML을 실시간 호출하지 않고 DB 값만 읽는다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -61,8 +58,6 @@ public class IdleLandCsvImportService {
         return replaceAllFromBytes(bytes);
     }
 
-    // 테스트용: 관리자 페이지에서 파일을 직접 선택하지 않고, S3에 미리 올려둔 CSV(app.idle-land-import
-    // 설정의 버킷/키)를 그대로 가져와 파일 업로드와 완전히 같은 로직(파싱 -> ML 재채점 -> 전량 교체)을 태운다.
     @Transactional
     public IdleLandImportResultDto replaceAllFromS3() {
         if (s3Bucket == null || s3Bucket.isBlank()) {
@@ -109,7 +104,6 @@ public class IdleLandCsvImportService {
         return new IdleLandImportResultDto(parsed.size(), land, building, unknown);
     }
 
-
     private static final List<String> REQUIRED_COLUMNS = List.of(
             "source_id_ml", "address_ml", "longitude", "latitude", "시도", "시군구",
             "자산구분_ML", "설치구분", "label",
@@ -128,8 +122,6 @@ public class IdleLandCsvImportService {
     private final IdleLandRepository idleLandRepository;
     private final MlScoringClient mlScoringClient;
 
-    // LAND/BUILDING별로 묶어 Ranking_ML을 한 번씩 호출하고, 결과를 각 IdleLand에 반영한다.
-    // ML 서버 호출이 실패해도 CSV 업로드 자체는 막지 않고 해당 그룹의 점수만 비워둔다.
     private void scoreAll(List<IdleLand> rows) {
         Map<String, List<IdleLand>> byType = rows.stream()
                 .filter(row -> "LAND".equals(row.getAssetTypeNorm()) || "BUILDING".equals(row.getAssetTypeNorm()))
@@ -164,7 +156,6 @@ public class IdleLandCsvImportService {
         }
     }
 
-
     private void recalculateGrades(List<IdleLand> group) {
         List<Double> population = group.stream()
                 .map(IdleLand::getSolarReadinessScore)
@@ -179,7 +170,6 @@ public class IdleLandCsvImportService {
             row.applyGrade(PercentileCalculator.gradeFromPercentile(percentile));
         }
     }
-
 
     private void applyVisionScores(List<IdleLand> group) {
         List<Integer> population = group.stream()
