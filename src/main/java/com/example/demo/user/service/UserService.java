@@ -110,22 +110,24 @@ public class UserService {
     }
 
     public void passwordSendCode(String loginId, String email) {
-        User user = userRepository.findByLoginId(loginId).orElse(null);
-        if (user == null || !user.getEmail().equals(email)) {
-            throw new CustomException(ErrorCode.USER_NOT_FOUND);
-        }
+        getUserByLoginIdAndEmail(loginId, email);
 
         emailVerificationService.sendCode(email, "비밀번호 찾기");
     }
 
     public void passwordVerifyCode(String loginId, String email, String code) {
+        getUserByLoginIdAndEmail(loginId, email);
+
+        emailVerificationService.verifyCodeOnly(email, code);
+        emailVerificationService.setIdentityVerified(loginId);
+    }
+
+    private User getUserByLoginIdAndEmail(String loginId, String email) {
         User user = userRepository.findByLoginId(loginId).orElse(null);
         if (user == null || !user.getEmail().equals(email)) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
-
-        emailVerificationService.verifyCodeOnly(email, code);
-        emailVerificationService.setIdentityVerified(loginId);
+        return user;
     }
 
     public boolean isIdentityVerified(String loginId) {
