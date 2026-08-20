@@ -58,7 +58,7 @@ public class MyPageController {
             @AuthenticationPrincipal Long userId,
             @RequestBody(required = false) WithdrawalRequest request
     ) {
-        String password = (request == null) ? null : request.getPassword();
+        String password = request == null ? null : request.getPassword();
         withdrawalService.withdraw(userId, password);
         return ApiResponse.success(SuccessCode.USER_WITHDRAWN);
     }
