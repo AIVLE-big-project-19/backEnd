@@ -14,7 +14,7 @@ public class IdleLandSearchResultDto {
     private Double latitude;
     private String sido;
     private String sigungu;
-    private String assetType; // LAND / BUILDING
+    private String assetType;
     private Double solarReadinessScore;
     private String solarReadinessGrade;
     private Integer candidateRank;

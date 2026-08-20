@@ -27,7 +27,7 @@ public class IdleLandSearchService {
     private final IdleLandRepository idleLandRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-   public IdleLandParcelDataDto parcelData(Long id) {
+    public IdleLandParcelDataDto parcelData(Long id) {
         IdleLand idleLand = idleLandRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.IDLE_LAND_NOT_FOUND));
         return new IdleLandParcelDataDto(
@@ -143,13 +143,5 @@ public class IdleLandSearchService {
             }
             return predicate;
         };
-    }
-
-    private Double toDouble(Object value) {
-        return value instanceof Number number ? number.doubleValue() : null;
-    }
-
-    private Integer toInteger(Object value) {
-        return value instanceof Number number ? number.intValue() : null;
     }
 }
