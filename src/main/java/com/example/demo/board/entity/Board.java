@@ -30,7 +30,6 @@ public class Board extends BaseEntity {
     @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
 
-    // 작성자_이후 수정 필요
     @Column(nullable = false, length = 30)
     private String writer;
 
@@ -38,7 +37,6 @@ public class Board extends BaseEntity {
     @JoinColumn(name = "author_id")
     private User author;
 
-    // 게시판 종류 (공지사항, 자유게시판 등)
     @Column(nullable = false, length = 30)
     private String category;
 
@@ -71,6 +69,7 @@ public class Board extends BaseEntity {
         this.viewCount++;
     }
 
+    @Builder.Default
     @OneToMany(
             mappedBy = "board",
             cascade = CascadeType.ALL,

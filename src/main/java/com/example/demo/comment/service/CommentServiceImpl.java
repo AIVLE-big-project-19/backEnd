@@ -41,9 +41,6 @@ public class CommentServiceImpl implements CommentService {
     @Value("${spring.mail.username}")
     private String mailUsername;
 
-    /**
-     * 댓글 등록
-     */
     @Override
     public CommentResponse createComment(Long boardId, Long userId, boolean isAdmin, CommentRequest request) {
 
@@ -66,13 +63,8 @@ public class CommentServiceImpl implements CommentService {
                 .build();
 
         Comment savedComment = commentRepository.save(comment);
-        if (isInquiry(board)) {
-            if (isAdmin) {
-                notificationService.notifyInquiryReply(board, savedComment);
-            }
-        }
-
         if (isInquiry(board) && isAdmin) {
+            notificationService.notifyInquiryReply(board, savedComment);
             notifyWriterOfAnswer(board);
         }
 
@@ -91,9 +83,6 @@ public class CommentServiceImpl implements CommentService {
                 "답변 등록 알림 메일 발송 실패 (writer=" + MaskingUtil.maskEmail(writer.getEmail()) + ")");
     }
 
-    /**
-     * 댓글 목록 조회
-     */
     @Override
     public List<CommentResponse> getComments(Long boardId, Long userId, boolean isAdmin) {
 
@@ -109,9 +98,6 @@ public class CommentServiceImpl implements CommentService {
                 .toList();
     }
 
-    /**
-     * 댓글 수정
-     */
     @Override
     public CommentResponse updateComment(Long commentId, Long userId, boolean isAdmin,
                                          CommentRequest request) {
@@ -133,9 +119,6 @@ public class CommentServiceImpl implements CommentService {
         return entityToResponse(updatedComment, userId, isAdmin);
     }
 
-    /**
-     * 댓글 삭제
-     */
     @Override
     public void deleteComment(Long commentId, Long userId, boolean isAdmin) {
 
@@ -164,9 +147,6 @@ public class CommentServiceImpl implements CommentService {
         }
     }
 
-    /**
-     * Entity → DTO
-     */
     private CommentResponse entityToResponse(Comment comment, Long viewerId, boolean isAdmin){
         boolean canView = canView(comment, viewerId, isAdmin);
 
