@@ -27,7 +27,7 @@ public class SiteAnalysis extends BaseEntity {
     @Column(length = 20)
     private String siteType;
 
-    /** Seeded records shown in the public demo candidate list. */
+    // 참고: 공개 데모 후보지 목록에 노출할 초기 데이터인지 구분한다.
     @Column(nullable = false)
     private boolean demoData;
 

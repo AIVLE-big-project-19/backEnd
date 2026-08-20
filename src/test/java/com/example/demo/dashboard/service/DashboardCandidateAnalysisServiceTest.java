@@ -111,9 +111,7 @@ class DashboardCandidateAnalysisServiceTest {
 
         when(idleLandRepository.findById(8L)).thenReturn(Optional.of(idleLand));
         when(mlScoringClient.rank("land", List.of(idleLand), 1, true)).thenReturn(rankResponse);
-        // VisionEnrichmentService는 별도로 단위 테스트되는 컴포넌트이므로, 여기서는
-        // 그 결과로 AiAnalysisResponse가 어떻게 채워지는지만 흉내 낸다
-        // (실제로는 VWorld -> Vision AI -> ML(/analyze/vision-json)을 거쳐 같은 값이 채워짐).
+        // 참고: VisionEnrichmentService는 별도로 검증하므로 여기서는 VWorld → Vision AI → ML 결과만 재현한다.
         doAnswer(invocation -> {
             AiAnalysisResponse target = invocation.getArgument(1);
             target.getSiteInfo().setAvailableArea(186.69d);
@@ -175,7 +173,6 @@ class DashboardCandidateAnalysisServiceTest {
                         30d,
                         0d,
                         14d,
-                        false,
                         monthly,
                         144_000L
                 )
