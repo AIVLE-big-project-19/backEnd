@@ -72,7 +72,6 @@ public class AnalysisSnapshotService {
                 .toList();
     }
 
-    // 관리자용: 전체 사용자의 분석 로그 조회
     @Transactional(readOnly = true)
     public List<AdminAnalysisLogItem> adminHistory() {
         return snapshotRepository.findAllByOrderByCreatedAtDesc().stream()
@@ -171,7 +170,6 @@ public class AnalysisSnapshotService {
             String status
     ) {}
 
-    // 실패 시 캐싱 오류 방지
     @Transactional
     public byte[] getOrCreatePdf(Long snapshotId, Long userId) throws IOException {
         AnalysisSnapshot snapshot = snapshotRepository.findById(snapshotId)
