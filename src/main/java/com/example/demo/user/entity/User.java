@@ -21,17 +21,14 @@ public class User extends BaseEntity {
     @Column(unique = true, length = 50)
     private String loginId;
 
-    // AES-256-GCM 암호문 저장. 같은 평문도 매번 다른 암호문이 나오므로 이 컬럼엔
-    // unique 제약을 걸 수 없다 — unique 제약은 emailHash로 옮겼다.
-    // 길이 여유: IV(12B)+평문+GCM태그(16B)를 Base64 인코딩하면 원문의 약 1.4배 +
-    // "ENC:" 접두사 4자. 이메일/이름 모두 255면 충분히 여유롭다.
+    // 참고: AES-256-GCM 암호문은 같은 평문도 매번 달라지므로 고유성은 emailHash로 보장한다.
+    // 참고: IV와 GCM 태그를 포함한 Base64 암호문 및 "ENC:" 접두사를 고려해 길이를 255로 둔다.
     @Column(nullable = false, length = 255)
     @Convert(converter = PiiCryptoConverter.class)
     private String email;
 
-    // HMAC-SHA256(정규화된 이메일) — 정확 일치 조회 전용. nullable: 마이그레이션 전
-    // 행은 일시적으로 null이며(PiiMigrationRunner가 채움), unique 컬럼에서 NULL은
-    // 여러 개 허용되므로 제약 위반 없이 공존 가능하다.
+    // 참고: 정규화된 이메일의 HMAC-SHA256 값으로 정확 일치 조회와 고유성을 보장한다.
+    // 참고: 마이그레이션 전 데이터는 PiiMigrationRunner가 값을 채울 때까지 null일 수 있다.
     @Column(unique = true, length = 64)
     private String emailHash;
 

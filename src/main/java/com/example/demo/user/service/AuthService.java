@@ -90,10 +90,8 @@ public class AuthService {
                 user = userRepository.save(newUser);
                 consentService.recordSignupConsents(user, false);
             } catch (DataIntegrityViolationException e) {
-                // 동시 요청으로 다른 스레드가 먼저 같은 이메일로 가입을 완료한 경우.
-                // 이 시점의 트랜잭션은 이미 rollback-only로 표시되어 세션 내 복구가 불가능하므로
-                // (커밋 시 UnexpectedRollbackException → 500), 재시도 가능한 에러로 응답한다.
-                // 사용자가 다시 로그인을 시도하면 기존 유저 경로로 정상 처리된다.
+                // 참고: 동시 가입으로 이메일 고유성 충돌이 발생하면 rollback-only 트랜잭션을 복구하지 않고
+                // 참고: 재시도 가능한 인증 오류를 반환해 다음 로그인에서 기존 사용자 경로를 사용하게 한다.
                 throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
             }
         }
