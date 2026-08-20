@@ -9,6 +9,7 @@ import com.example.demo.comment.repository.CommentRepository;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.util.MaskingUtil;
+import com.example.demo.global.util.NotificationMailer;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
@@ -16,9 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -85,16 +84,11 @@ public class CommentServiceImpl implements CommentService {
         if (writer == null || writer.getEmail() == null || writer.getEmail().isBlank()) {
             return;
         }
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("SolarAivle <" + mailUsername + ">");
-        message.setTo(writer.getEmail());
-        message.setSubject("[1:1문의] 문의하신 글에 답변이 등록되었습니다");
-        message.setText("\"" + board.getTitle() + "\" 문의에 답변이 등록되었습니다. 게시판에서 확인해주세요.");
-        try {
-            mailSender.send(message);
-        } catch (MailException e) {
-            log.warn("답변 등록 알림 메일 발송 실패 (writer={})", MaskingUtil.maskEmail(writer.getEmail()), e);
-        }
+        NotificationMailer.sendQuietly(mailSender, log, mailUsername,
+                new String[]{writer.getEmail()},
+                "[1:1문의] 문의하신 글에 답변이 등록되었습니다",
+                "\"" + board.getTitle() + "\" 문의에 답변이 등록되었습니다. 게시판에서 확인해주세요.",
+                "답변 등록 알림 메일 발송 실패 (writer=" + MaskingUtil.maskEmail(writer.getEmail()) + ")");
     }
 
     /**

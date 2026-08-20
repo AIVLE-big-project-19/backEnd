@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 @Component
 public class GoogleOAuthClient {
@@ -78,36 +79,32 @@ public class GoogleOAuthClient {
     }
 
     private Map<String, Object> post(String uri, MultiValueMap<String, String> form) {
-        try {
-            return restClient.post()
-                    .uri(uri)
-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(form)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<Map<String, Object>>() {
-                    });
-        } catch (RestClientResponseException e) {
-            log.warn("구글 토큰 교환 요청 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
-        } catch (RestClientException e) {
-            log.warn("구글 토큰 교환 요청 실패", e);
-            throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
-        }
+        return callGoogleApi(() -> restClient.post()
+                .uri(uri)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {
+                }), "구글 토큰 교환 요청 실패");
     }
 
     private Map<String, Object> getUserInfo(String accessToken) {
+        return callGoogleApi(() -> restClient.get()
+                .uri(USERINFO_URI)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {
+                }), "구글 사용자정보 조회 요청 실패");
+    }
+
+    private Map<String, Object> callGoogleApi(Supplier<Map<String, Object>> call, String failureLogMessage) {
         try {
-            return restClient.get()
-                    .uri(USERINFO_URI)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<Map<String, Object>>() {
-                    });
+            return call.get();
         } catch (RestClientResponseException e) {
-            log.warn("구글 사용자정보 조회 요청 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            log.warn("{}: status={}, body={}", failureLogMessage, e.getStatusCode(), e.getResponseBodyAsString());
             throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
         } catch (RestClientException e) {
-            log.warn("구글 사용자정보 조회 요청 실패", e);
+            log.warn(failureLogMessage, e);
             throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
         }
     }

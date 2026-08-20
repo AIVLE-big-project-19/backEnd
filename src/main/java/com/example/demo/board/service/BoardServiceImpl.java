@@ -11,6 +11,7 @@ import com.example.demo.board.storage.BoardFileStorage;
 import com.example.demo.global.exception.CustomException;
 import com.example.demo.global.exception.ErrorCode;
 import com.example.demo.global.response.PageResponse;
+import com.example.demo.global.util.NotificationMailer;
 import com.example.demo.user.entity.User;
 import com.example.demo.user.repository.UserRepository;
 import com.example.demo.notification.service.NotificationService;
@@ -18,9 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.transaction.annotation.Transactional;
@@ -115,16 +114,11 @@ public class BoardServiceImpl implements BoardService {
     }
 
     private void notifyAdminOfNewInquiry(Board board) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom("SolarAivle <" + mailUsername + ">");
-        message.setTo(adminEmail.split("\\s*,\\s*"));
-        message.setSubject("[1:1문의] " + board.getTitle());
-        message.setText(resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent());
-        try {
-            mailSender.send(message);
-        } catch (MailException e) {
-            log.warn("신규 문의 관리자 알림 메일 발송 실패", e);
-        }
+        NotificationMailer.sendQuietly(mailSender, log, mailUsername,
+                adminEmail.split("\\s*,\\s*"),
+                "[1:1문의] " + board.getTitle(),
+                resolveWriterName(board) + "님이 문의를 남겼습니다.\n\n" + board.getContent(),
+                "신규 문의 관리자 알림 메일 발송 실패");
     }
 
     @Override

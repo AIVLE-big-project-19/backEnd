@@ -62,13 +62,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
             HttpRequestMethodNotSupportedException e){
 
-        return ResponseEntity
-                .status(HttpStatus.METHOD_NOT_ALLOWED)
-                .body(
-                        ApiResponse.fail(
-                                "지원하지 않는 요청 방식입니다."
-                        )
-                );
+        return fail(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청 방식입니다.");
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -85,13 +79,11 @@ public class GlobalExceptionHandler {
 
         log.error("처리되지 않은 예외가 발생했습니다.", e);
 
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(
-                        ApiResponse.fail(
-                                "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-                        )
-                );
+        return fail(HttpStatus.INTERNAL_SERVER_ERROR, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    private ResponseEntity<ApiResponse<Void>> fail(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(ApiResponse.fail(message));
     }
 
 }

@@ -81,10 +81,6 @@ public class JwtProvider {
         return claims.get("role", String.class);
     }
 
-    public long getAccessTokenValidityMs() {
-        return accessTokenValidityMs;
-    }
-
     public long getRefreshTokenValidityMs(boolean rememberMe) {
         return rememberMe ? refreshTokenRememberMeValidityMs : refreshTokenValidityMs;
     }
