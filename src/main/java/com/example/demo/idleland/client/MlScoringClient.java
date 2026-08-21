@@ -27,8 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
-// IdleLand 후보지 목록을 CSV로 만들어 Ranking_ML(FastAPI) POST /rank/{dataset_type}로 넘기고,
-// 예측·랭킹·SHAP 결과를 받아온다.
 @Slf4j
 @Component
 public class MlScoringClient {
@@ -88,9 +86,6 @@ public class MlScoringClient {
         }
     }
 
-    // Vision AI가 뽑은 detection 목록을 ML의 통합 분석(/analyze/vision-json)에 그대로 전달한다.
-    // 응답 구조가 /rank 쪽 리포트 포맷과 키 이름이 달라(예: vision_area_score) 별도 DTO를
-    // 만드는 대신 중첩 Map/List로 받아 필요한 값만 뽑아 쓴다.
     public Map<String, Object> analyzeVisionJson(List<Map<String, Object>> visionPredictions) {
         String url = baseUrl + "/analyze/vision-json";
         try {

@@ -9,7 +9,6 @@ import lombok.Setter;
 import java.util.List;
 import java.util.Map;
 
-// Ranking_ML(FastAPI) POST /rank/{dataset_type} 응답 형태 그대로
 @Getter
 @Setter
 @JsonIgnoreProperties(ignoreUnknown = true)

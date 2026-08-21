@@ -11,8 +11,6 @@ import java.util.List;
 
 public interface BoardService {
 
-    BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin);
-
     BoardResponse createBoard(BoardRequest request, List<MultipartFile> files, Long userId, boolean isAdmin);
 
     BoardResponse getBoard(Long boardId, Long userId, boolean isAdmin);
@@ -20,10 +18,6 @@ public interface BoardService {
     PageResponse<BoardResponse> getBoards(Pageable pageable, String category, Long userId, boolean isAdmin);
 
     BoardResponse togglePinned(Long boardId, boolean isAdmin);
-
-    BoardResponse updateBoard(Long boardId, BoardRequest request, Long userId, boolean isAdmin);
-
-    BoardResponse updateBoard(Long boardId, BoardRequest request, List<MultipartFile> files, Long userId, boolean isAdmin);
 
     BoardResponse updateBoard(Long boardId, BoardRequest request, List<MultipartFile> files,
                               List<Long> deletedAttachmentIds, Long userId, boolean isAdmin);

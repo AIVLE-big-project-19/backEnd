@@ -27,7 +27,6 @@ public class SiteAnalysis extends BaseEntity {
     @Column(length = 20)
     private String siteType;
 
-    // 참고: 공개 데모 후보지 목록에 노출할 초기 데이터인지 구분한다.
     @Column(nullable = false)
     private boolean demoData;
 
@@ -43,9 +42,4 @@ public class SiteAnalysis extends BaseEntity {
     private Long estimatedInstallationCost;
     private Long estimatedAnnualRevenue;
     private Double paybackPeriodYears;
-
-    public void markAsDemoData(String siteType) {
-        this.demoData = true;
-        this.siteType = siteType;
-    }
 }

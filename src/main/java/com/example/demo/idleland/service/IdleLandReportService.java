@@ -15,10 +15,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.List;
 
-// 검색으로 찾은 유휴부지 후보 1건에 대해 ML을 다시 호출해(SHAP 포함) 기존 PDF 보고서를 생성한다.
-// 추가로 VisionEnrichmentService가 VWorld 위성이미지 -> Vision AI -> ML(면적 가중 통합점수) 순으로 호출해,
-// 성공하면 SHAP 기반 점수/추천·감점 이유는 그대로 두고 면적 가중 점수와 실제 탐지 이미지만 덮어쓴다.
-// 이 보강 단계가 실패해도 보고서 다운로드 자체는 기존 방식(면적 미반영)대로 계속 진행된다.
 @Slf4j
 @Service
 @RequiredArgsConstructor

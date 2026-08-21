@@ -80,11 +80,6 @@ public class BoardServiceImpl implements BoardService {
     private String mailUsername;
 
     @Override
-    public BoardResponse createBoard(BoardRequest request, Long userId, boolean isAdmin) {
-        return createBoard(request, List.of(), userId, isAdmin);
-    }
-
-    @Override
     @Transactional
     public BoardResponse createBoard(BoardRequest request, List<MultipartFile> files, Long userId, boolean isAdmin) {
         User user = getUser(userId);
@@ -181,17 +176,6 @@ public class BoardServiceImpl implements BoardService {
         }
         board.togglePinned();
         return entityToResponse(boardRepository.save(board), null);
-    }
-
-    @Override
-    public BoardResponse updateBoard(Long boardId, BoardRequest request, Long userId, boolean isAdmin) {
-        return updateBoard(boardId, request, List.of(), userId, isAdmin);
-    }
-
-    @Override
-    @Transactional
-    public BoardResponse updateBoard(Long boardId, BoardRequest request, List<MultipartFile> files, Long userId, boolean isAdmin) {
-        return updateBoard(boardId, request, files, List.of(), userId, isAdmin);
     }
 
     @Override
@@ -445,7 +429,6 @@ public class BoardServiceImpl implements BoardService {
         try {
             boardFileStorage.delete(storedFilename);
         } catch (RuntimeException ignored) {
-            // 참고: 업로드 또는 DB 오류를 유지하기 위해 롤백 파일 정리 실패는 무시한다.
         }
     }
 

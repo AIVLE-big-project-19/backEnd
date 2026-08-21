@@ -1,8 +1,6 @@
 package com.example.demo.report.service;
 
 import com.example.demo.idleland.support.EconomicsCalculator;
-import com.example.demo.report.client.AiAnalysisClient;
-import com.example.demo.report.support.DummyAnalysisFixtures;
 import com.example.demo.report.dto.AgentExplanation;
 import com.example.demo.report.dto.AiAnalysisResponse;
 import com.example.demo.report.dto.BusinessRoute;
@@ -53,35 +51,10 @@ public class ReportService {
     private static final DeviceRgb BORDER_GRAY = new DeviceRgb(210, 214, 220);
     private static final String TARGET_TYPE_ROOF = "ROOF";
 
-    // Vision AI(visionAI/app/inference.py의 OVERLAY_COLORS)가 분석 이미지에 칠하는 색과 동일하게 맞춘 범례.
-    // BGR (255,0,0)/(0,200,0)/(0,200,255) -> RGB로 변환한 값.
-    private static final DeviceRgb VISION_COLOR_BUILDING = new DeviceRgb(0, 0, 255);
-    private static final DeviceRgb VISION_COLOR_LAND = new DeviceRgb(0, 200, 0);
-    private static final DeviceRgb VISION_COLOR_PARKING_LOT = new DeviceRgb(255, 200, 0);
-
-    private final AiAnalysisClient aiAnalysisClient;
-
-    public byte[] generateReportPdf(String address) throws Exception {
-        AiAnalysisResponse data = aiAnalysisClient.fetchAnalysis(address);
-        if (data == null) {
-            throw new IllegalStateException("AI 분석 서버로부터 응답을 받지 못했습니다.");
-        }
-        return buildPdf(data);
-    }
-
-    // 유휴부지 검색 → ML 랭킹 흐름처럼, 이미 확보한 분석 데이터로 바로 PDF를 만들 때 사용
     public byte[] generateReportPdf(AiAnalysisResponse data) throws IOException {
         if (data == null) {
             throw new IllegalStateException("분석 데이터가 없습니다.");
         }
-        return buildPdf(data);
-    }
-
-    // AI 서버 없이 PDF 레이아웃/데이터 매핑을 확인하기 위한 더미 데이터 경로
-    public byte[] generateSampleReportPdf(String targetType) throws IOException {
-        AiAnalysisResponse data = "LAND".equalsIgnoreCase(targetType)
-                ? DummyAnalysisFixtures.landSample()
-                : DummyAnalysisFixtures.roofSample();
         return buildPdf(data);
     }
 
@@ -158,21 +131,8 @@ public class ReportService {
                     .setWidth(UnitValue.createPercentValue(60))
                     .setMarginBottom(4);
             document.add(image);
-//            addVisionColorLegend(document);
         } catch (Exception e) {
-            // 이미지 디코딩 실패는 보고서 생성 자체를 막지 않는다.
         }
-    }
-
-    // 이미지에 칠해진 색이 각각 무엇을 뜻하는지 이미지 바로 아래에 간단히 표시한다.
-    private void addVisionColorLegend(Document document) {
-        Paragraph legend = new Paragraph().setFontSize(8.5f).setMarginBottom(10);
-        document.add(legend);
-    }
-
-    private void addLegendItem(Paragraph legend, DeviceRgb color, String label) {
-        legend.add(new Text("■ ").setFontColor(color));
-        legend.add(new Text(label + "   ").setFontColor(new DeviceRgb(60, 66, 75)));
     }
 
     private void addGradeSummary(Document document, PdfFont boldFont, ScoresAndEvaluation scores) {
@@ -249,8 +209,6 @@ public class ReportService {
         table.addCell(plainCell(font, safe(reason)));
     }
 
-    // Rule-based 규제 검토는 통과/미통과를 100/0으로 표현하는 이진값이라, 점수가 아니라
-    // PASS/FAIL로 보여준다.
     private void addRuleBasedScoreRow(Table table, PdfFont font, Integer score, String reason) {
         table.addCell(plainCell(font, "Rule-based 규제 검토"));
         String display = score == null ? "-" : score > 0 ? "PASS" : "FAIL";

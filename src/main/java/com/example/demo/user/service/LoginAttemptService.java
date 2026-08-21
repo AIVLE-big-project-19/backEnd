@@ -60,12 +60,10 @@ public class LoginAttemptService {
         String lockedKey = LOCKED_KEY_PREFIX + loginId;
         String levelKey = LOCK_LEVEL_KEY_PREFIX + loginId;
 
-        // 참고: SET NX로 잠금을 획득한 요청만 단계를 올려 동시 실패 요청이 잠금 시간을 중복 증가시키지 않게 한다.
         boolean acquiredLock = Boolean.TRUE.equals(
                 redisTemplate.opsForValue().setIfAbsent(lockedKey, "true", LOCK_MINUTES[0], TimeUnit.MINUTES));
 
         if (!acquiredLock) {
-            // 참고: 다른 요청이 먼저 잠갔다면 단계를 변경하지 않고 해당 잠금의 남은 시간을 반환한다.
             return remainingMinutesCeil(redisTemplate.getExpire(lockedKey));
         }
 
@@ -76,7 +74,6 @@ public class LoginAttemptService {
         long lockMinutes = LOCK_MINUTES[index];
 
         if (lockMinutes != LOCK_MINUTES[0]) {
-            // 참고: 최초 잠금에 설정한 1단계 TTL을 실제 누적 잠금 단계의 시간으로 교체한다.
             redisTemplate.expire(lockedKey, lockMinutes, TimeUnit.MINUTES);
         }
 

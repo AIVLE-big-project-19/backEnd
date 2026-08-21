@@ -23,7 +23,6 @@ public final class PercentileCalculator {
         return averageRank / population.size();
     }
 
-    // Double 버전. DB에 저장된 solarReadinessScore 분포 기준으로 등급을 다시 계산할 때 쓴다.
     public static Double percentile(List<Double> population, Double value) {
         if (value == null || population == null || population.isEmpty()) {
             return null;
