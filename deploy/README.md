@@ -66,3 +66,22 @@ https://d1iuhepb03p42r.cloudfront.net/api
 - **GitHub Secrets에 아무것도 등록할 필요 없음** — 워크플로우가 실행될 때마다 AWS STS에서 15분짜리 임시 토큰을 발급받는 방식이라 유출 위험이 있는 정적 키가 아예 없음
 
 **주의**: 워크플로우 트리거가 `main` push라서, `main`에 머지되는 순간 실제 운영 중인 ECS 서비스가 바로 업데이트됨. 인프라를 지운 상태에서 `main`에 push하면 `ecs describe-task-definition`/`ecs update-service` 호출이 실패하며 워크플로우가 실패함(인프라가 있을 때만 정상 동작).
+
+## 모니터링 (CloudWatch)
+
+Backend/Chatbot/Ranking-ML/Vision-AI/Policy-Agent 5개 ECS 서비스의 리소스·요청·에러를 실시간 감시하고, 이상 발생 시 SNS로 이메일 즉시 통보.
+
+- **대시보드**: CPU·Memory·ALB 요청/에러/응답시간·서비스별 CPU/Memory 추이·에러 로그 추이를 하나의 화면에서 확인
+- **알람**: 서비스별 CPU/Memory/LiveTaskCount 임계값 초과를 감지해 SNS로 이메일 통보
+
+| 지표 | 임계값 | 평가 방식 | 목적 |
+|---|---|---|---|
+| CPUUtilization | 80~90% 초과 | 15분 내 3회 연속 | 리소스 과부하 조기 감지 |
+| MemoryUtilization | 80% 초과 | 15분 내 3회 연속 | OOM(메모리 초과 강제종료) 방지 |
+| LiveTaskCount | Desired Count 미만 | 5분 내 1회(즉시) | 서비스 다운 즉시 감지 |
+
+서비스 5개(Backend/Chatbot/Ranking-ML/Vision-AI/Policy-Agent) × 지표 3종 = 알람 15개 운영. 위반 시 SNS 이메일로 즉시 통보.
+
+**정상 확인된 특이사항**: 에러 로그 분석 중 ThinkPHP/PHPUnit 취약점 스캔 봇 트래픽 확인 — Spring Security가 정상적으로 요청을 차단(400 응답)하고 있어 애플리케이션 코드 문제 아님. 향후 WAF 도입 검토 예정.
+
+> 출처: 발표자료(PPT) 별첨 슬라이드 51~53.
