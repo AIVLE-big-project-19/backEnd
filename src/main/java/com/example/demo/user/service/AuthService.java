@@ -90,8 +90,6 @@ public class AuthService {
                 user = userRepository.save(newUser);
                 consentService.recordSignupConsents(user, false);
             } catch (DataIntegrityViolationException e) {
-                // 참고: 동시 가입으로 이메일 고유성 충돌이 발생하면 rollback-only 트랜잭션을 복구하지 않고
-                // 참고: 재시도 가능한 인증 오류를 반환해 다음 로그인에서 기존 사용자 경로를 사용하게 한다.
                 throw new CustomException(ErrorCode.GOOGLE_AUTH_FAILED);
             }
         }
@@ -132,6 +130,13 @@ public class AuthService {
                 .ifPresent(refreshTokenRepository::delete);
     }
 
+    public TokenResponse adminTestLogin() {
+        User user = userRepository.findByLoginId("admin")
+                .orElseThrow(() -> new IllegalArgumentException("Admin 계정이 존재하지 않습니다. 먼저 생성해주세요."));
+
+        return issueTokens(user, true);
+    }
+
     private TokenResponse issueTokens(User user, boolean rememberMe) {
         String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(user.getId());
@@ -152,14 +157,5 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
-    }
-
-    public TokenResponse adminTestLogin() {
-
-        User user = userRepository.findByLoginId("admin")
-                .orElseThrow(() -> new IllegalArgumentException("Admin 계정이 존재하지 않습니다. 먼저 생성해주세요."));
-
-
-        return issueTokens(user, true);
     }
 }

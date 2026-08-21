@@ -51,7 +51,7 @@ class BoardServiceImplTest {
     void 일반회원은_FAQ를_작성할_수_없다() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "member")));
 
-        assertThatThrownBy(() -> boardService.createBoard(request("FAQ"), 1L, false))
+        assertThatThrownBy(() -> boardService.createBoard(request("FAQ"), null, 1L, false))
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getErrorCode())
                 .isEqualTo(ErrorCode.ADMIN_BOARD_ONLY);
@@ -66,7 +66,7 @@ class BoardServiceImplTest {
         BoardRequest request = request("자유게시판");
         request.setWriter("spoofedWriter");
 
-        var response = boardService.createBoard(request, 1L, false);
+        var response = boardService.createBoard(request, null, 1L, false);
 
         assertThat(response.getWriter()).isEqualTo("realWriter");
     }
@@ -82,7 +82,7 @@ class BoardServiceImplTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(googleUser));
         when(boardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        var response = boardService.createBoard(request("자유게시판"), 2L, false);
+        var response = boardService.createBoard(request("자유게시판"), null, 2L, false);
 
         assertThat(response.getWriter()).isEqualTo("구글 사용자");
         assertThat(response.getWriterName()).isEqualTo("구글 사용자");
@@ -109,7 +109,7 @@ class BoardServiceImplTest {
         boardService.deleteBoard(10L, 99L, true);
         verify(boardRepository).delete(board);
 
-        assertThatThrownBy(() -> boardService.updateBoard(10L, request("1:1문의"), 99L, true))
+        assertThatThrownBy(() -> boardService.updateBoard(10L, request("1:1문의"), null, null, 99L, true))
                 .isInstanceOf(CustomException.class)
                 .extracting(error -> ((CustomException) error).getErrorCode())
                 .isEqualTo(ErrorCode.INQUIRY_ADMIN_CANNOT_UPDATE);
@@ -141,7 +141,7 @@ class BoardServiceImplTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "member")));
         when(boardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        boardService.createBoard(request("1:1문의"), 1L, false);
+        boardService.createBoard(request("1:1문의"), null, 1L, false);
 
         verify(mailSender).send(any(SimpleMailMessage.class));
     }
@@ -151,7 +151,7 @@ class BoardServiceImplTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user(1L, "member")));
         when(boardRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        boardService.createBoard(request("자유게시판"), 1L, false);
+        boardService.createBoard(request("자유게시판"), null, 1L, false);
 
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }

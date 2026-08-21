@@ -47,10 +47,6 @@ public class IdleLandSearchService {
         }
     }
 
-    public List<IdleLandSearchResultDto> findAllScored() {
-        return scoreAndSort(idleLandRepository.findAll());
-    }
-
     public Page<IdleLandSearchResultDto> findByRegionScored(
             String sido,
             String sigungu,

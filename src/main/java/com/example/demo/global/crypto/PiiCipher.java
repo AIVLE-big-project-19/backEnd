@@ -7,11 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-/**
- * User.email/name 컬럼 암호화 핵심 로직.
- * Hibernate가 Spring 컨텍스트와 무관하게 JPA Converter를 직접 인스턴스화하므로
- * Spring DI에 기대지 않는 정적 유틸리티로 작성한다(HashUtil과 동일한 스타일).
- */
 final class PiiCipher {
 
     private static final String ENC_PREFIX = "ENC:";
@@ -44,12 +39,6 @@ final class PiiCipher {
         }
     }
 
-    /**
-     * 저장된 값이 ENC: 접두사로 시작하지 않거나(마이그레이션 전 레거시 평문) 복호화에
-     * 실패하면 예외를 던지지 않고 원문 그대로 반환한다. 지난 배포 장애가 정확히
-     * "복호화 실패 시 예외가 요청 전체를 500으로 죽이는" 패턴이었기 때문에, 이 폴백은
-     * 선택이 아니라 필수 안전장치다.
-     */
     static String decrypt(String stored) {
         if (stored == null || !stored.startsWith(ENC_PREFIX)) {
             return stored;

@@ -28,13 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// IdleLand 좌표 기준으로 VWorld 위성이미지 -> Vision AI -> ML(면적 가중 통합) 순으로 호출해
-// AiAnalysisResponse의 부지 면적/점수/Vision 시뮬레이션 값을 실측 기반으로 보강하고,
-// 이어서 정책·자금지원 추천 Agent(AI_agent)를 호출해 4_risk_and_support를 보강한다.
-// IdleLandReportService, DashboardCandidateAnalysisService, AnalysisSnapshotService가 공유해서 쓰던
-// 거의 동일한 로직이 각자 따로 복붙돼 있던 걸 여기로 모았다.
-// 성공하면 SHAP 기반 점수/추천·감점 이유는 그대로 두고 면적 가중 점수와 실제 탐지 이미지만 덮어쓴다.
-// 각 단계는 실패해도 예외를 던지지 않고 조용히 원래 값을 유지한다.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -114,7 +107,6 @@ public class VisionEnrichmentService {
                     vWorldImageClient.fetchImage(idleLand.getLongitude(), idleLand.getLatitude());
             VisionAiClient.VisionPredictResponse visionResult =
                     visionAiClient.predict(imageSource.imageBytes(), imageSource.extent3857());
-            // 탐지 결과가 없어도 위성이미지 자체는 보고서에 보여줄 가치가 있으므로 먼저 반영해둔다.
             target.setFinalVisualizationImageBase64(visionResult.getFinalVisualizationImage());
 
             if (visionResult.getPredictions() == null || visionResult.getPredictions().isEmpty()) {
@@ -287,7 +279,6 @@ public class VisionEnrichmentService {
             }
 
             Map<String, Object> visionAnalysis = new LinkedHashMap<>((Map<String, Object>) rawVisionAnalysis);
-            // 통합 파이프라인은 방위를 aspect_direction_degree(각도)로 주는데, PDF 라벨은 aspect_direction 키를 찾는다.
             if (visionAnalysis.get("aspect_direction_degree") != null) {
                 visionAnalysis.put("aspect_direction", visionAnalysis.get("aspect_direction_degree"));
             }

@@ -75,11 +75,6 @@ app:
     s3-bucket: ${IDLE_LAND_IMPORT_S3_BUCKET:${AWS_S3_BUCKET:}}
     s3-key: ${IDLE_LAND_IMPORT_S3_KEY:idle-land/데이터_전체_최종보정.csv}
 
-ai:
-  server:
-    # AI 분석 서버 나중에 수정하기
-    base-url: ${AI_SERVER_URL:http://localhost:9000}
-    analyze-path: ${AI_SERVER_ANALYZE_PATH:/analyze}
 vision:
   ai:
     url: ${VISION_AI_URL:http://localhost:8001/api/v1/vision/shade-analysis}

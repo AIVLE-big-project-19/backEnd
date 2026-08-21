@@ -14,7 +14,6 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     List<Comment> findByBoardOrderByCreatedAtAsc(Board board);
 
-    // 참고: 회원 탈퇴 시 author FK를 끊고 댓글 표시명을 익명화한다.
     @Modifying(clearAutomatically = true)
     @Query("UPDATE Comment c SET c.writer = :writer, c.author = null WHERE c.author = :author")
     int anonymizeByAuthor(@Param("author") User author, @Param("writer") String writer);

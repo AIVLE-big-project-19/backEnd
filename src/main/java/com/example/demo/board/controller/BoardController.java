@@ -26,19 +26,6 @@ public class BoardController {
 
     private final BoardService boardService;
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<BoardResponse> createBoard(
-            @Valid @RequestBody BoardRequest request,
-            Authentication authentication){
-
-        return ApiResponse.success(
-                SuccessCode.BOARD_CREATED,
-                boardService.createBoard(request, userId(authentication), isAdmin(authentication))
-        );
-
-    }
-
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<BoardResponse> createBoardWithAttachments(
@@ -82,19 +69,6 @@ public class BoardController {
                 SuccessCode.BOARD_UPDATED,
                 boardService.togglePinned(boardId, isAdmin(authentication))
         );
-    }
-
-    @PutMapping(value = "/{boardId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ApiResponse<BoardResponse> updateBoard(
-            @PathVariable Long boardId,
-            @Valid @RequestBody BoardRequest request,
-            Authentication authentication){
-
-        return ApiResponse.success(
-                SuccessCode.BOARD_UPDATED,
-                boardService.updateBoard(boardId, request, userId(authentication), isAdmin(authentication))
-        );
-
     }
 
     @PutMapping(value = "/{boardId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

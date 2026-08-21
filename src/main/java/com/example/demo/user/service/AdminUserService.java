@@ -41,7 +41,6 @@ public class AdminUserService {
 
         user.setRole(role);
 
-        // 참고: 기존 refresh token으로 변경 전 권한의 JWT가 재발급되지 않도록 모두 삭제한다.
         refreshTokenRepository.deleteByUser(user);
         return AdminUserResponse.from(user);
     }

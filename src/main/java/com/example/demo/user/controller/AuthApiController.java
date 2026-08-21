@@ -126,7 +126,6 @@ public class AuthApiController {
         return ApiResponse.success(SuccessCode.PASSWORD_RESET);
     }
 
-
     @PostMapping("/test-login/admin")
     public ResponseEntity<TokenResponse> adminTestLogin() {
         TokenResponse response = authService.adminTestLogin();

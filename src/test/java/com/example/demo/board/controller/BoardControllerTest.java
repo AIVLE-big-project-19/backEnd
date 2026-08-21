@@ -28,9 +28,9 @@ class BoardControllerTest {
         BoardRequest request = request("공지사항");
         var authentication = authentication("ROLE_USER");
 
-        boardController.createBoard(request, authentication);
+        boardController.createBoardWithAttachments(request, null, authentication);
 
-        verify(boardService).createBoard(request, 1L, false);
+        verify(boardService).createBoard(request, null, 1L, false);
     }
 
     @Test
@@ -38,9 +38,9 @@ class BoardControllerTest {
         BoardRequest request = request("공지사항");
         var authentication = authentication("ROLE_ADMIN");
 
-        boardController.createBoard(request, authentication);
+        boardController.createBoardWithAttachments(request, null, authentication);
 
-        verify(boardService).createBoard(request, 1L, true);
+        verify(boardService).createBoard(request, null, 1L, true);
     }
 
     @Test
@@ -48,9 +48,9 @@ class BoardControllerTest {
         BoardRequest request = request("자유게시판");
         var authentication = authentication("ROLE_USER");
 
-        boardController.createBoard(request, authentication);
+        boardController.createBoardWithAttachments(request, null, authentication);
 
-        verify(boardService).createBoard(request, 1L, false);
+        verify(boardService).createBoard(request, null, 1L, false);
     }
 
     private BoardRequest request(String category) {

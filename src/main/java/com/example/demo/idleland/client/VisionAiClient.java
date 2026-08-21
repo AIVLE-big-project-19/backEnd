@@ -20,8 +20,6 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 
-// Vision AI(FastAPI) POST /predict를 호출해 세그멘테이션 결과(predictions)와
-// 폴리곤이 그려진 위성이미지(annotated_image, base64 PNG)를 받아온다.
 @Slf4j
 @Component
 public class VisionAiClient {
@@ -34,7 +32,6 @@ public class VisionAiClient {
     @Getter
     @Setter
     public static class VisionPredictResponse {
-        // ML(/analyze/vision-json)로 그대로 전달할 원본 detection 목록.
         private List<Map<String, Object>> predictions;
 
         @JsonProperty("final_visualization_image")
