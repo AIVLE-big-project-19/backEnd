@@ -120,7 +120,3 @@ src/main/java/com/example/demo/
 - GitHub Actions CI/CD, OIDC 기반 AWS 인증 (`main` 브랜치 push 시 자동 배포)
 - 모니터링: CloudWatch 대시보드 + 알람(CPU/Memory/LiveTaskCount) + SNS 이메일 알림
 - 상세 인프라 구성은 [deploy/README.md](./deploy/README.md) 참고
-
-## 팀 구성
-
-팀 전체 구성 및 담당 영역은 [프론트 레포](링크)를 참고해주세요.
