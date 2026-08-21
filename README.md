@@ -4,7 +4,7 @@ AI 기반 유휴공간 태양광 설치 우선순위 분석 서비스 — **백�
 
 KT AIVLE BIG PROJECT · AI_07반_19조
 
-> 전체 프로젝트 소개는 [프론트 레포](링크)를 참고해주세요. 이 문서는 백엔드 서버(Spring Boot)에 대한 설명입니다.
+> 전체 프로젝트 소개는 [프론트 레포](https://github.com/AIVLE-big-project-19/frontEnd)를 참고해주세요. 이 문서는 백엔드 서버(Spring Boot)에 대한 설명입니다.
 
 ---
 
